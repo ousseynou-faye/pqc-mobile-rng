@@ -1,0 +1,4 @@
+--TODO: source physique :
+-- ring oscillator
+-- jitter
+-- thermal noise
