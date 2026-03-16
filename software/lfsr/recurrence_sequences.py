@@ -1,67 +1,88 @@
-"""
-./software/lfsr/recurrence_sequences.py
+from __future__ import annotations
 
-Génération des séquences de récurrence linéaire
-basées sur LFSR.
-
-Utilisé pour le Multiplexed Sponge RNG.
-"""
+from dataclasses import dataclass
+from typing import Optional
 
 from .lfsr_core import LFSR
 
 
+@dataclass
 class RecurrenceSequence:
+    """
+    Façade propre autour du LFSR pour le prototype mathématique.
+    """
 
-    def __init__(self, degree, seed):
+    degree: int
+    seed: int
+    taps: Optional[tuple[int, ...]] = None
 
-        self.lfsr = LFSR(degree, seed)
-        self.degree = degree
+    def __post_init__(self) -> None:
+        self.lfsr = LFSR(degree=self.degree, seed=self.seed, taps=self.taps)
 
-    # -------------------------------------------------
+    @property
+    def period(self) -> int:
+        return self.lfsr.max_period()
 
-    def next_bit(self):
+    def clone(self) -> "RecurrenceSequence":
+        return RecurrenceSequence(
+            degree=self.degree,
+            seed=self.lfsr.state,
+            taps=self.lfsr.taps,
+        )
 
+    def next_bit(self) -> int:
         return self.lfsr.step()
 
-    # -------------------------------------------------
+    def advance(self, steps: int) -> None:
+        self.lfsr.advance(steps)
 
-    def generate_sequence(self, length):
+    def peek_bit(self, offset: int = 0) -> int:
+        # Réduction modulo la période pour rester sur la suite cyclique.
+        offset %= self.period
+        return self.lfsr.peek_bit(offset=offset)
 
-        seq = []
+    def peek_bits(self, length: int, start_offset: int = 0) -> list[int]:
+        if length < 0:
+            raise ValueError("length doit être >= 0.")
+        return [self.peek_bit(start_offset + i) for i in range(length)]
 
-        for _ in range(length):
-            seq.append(self.next_bit())
+    def generate_sequence(self, length: int) -> list[int]:
+        if length < 0:
+            raise ValueError("length doit être >= 0.")
+        return [self.next_bit() for _ in range(length)]
 
-        return seq
+    def generate_block(self, block_size: int, msb_first: bool = True) -> int:
+        if block_size <= 0:
+            raise ValueError("block_size doit être > 0.")
 
-    # -------------------------------------------------
+        bits = [self.next_bit() for _ in range(block_size)]
 
-    def generate_block(self, block_size):
+        value = 0
+        if msb_first:
+            for bit in bits:
+                value = (value << 1) | bit
+        else:
+            for i, bit in enumerate(bits):
+                value |= bit << i
+        return value
 
-        block = 0
+    def peek_block(self, block_size: int, start_offset: int = 0, msb_first: bool = True) -> int:
+        if block_size <= 0:
+            raise ValueError("block_size doit être > 0.")
 
-        for i in range(block_size):
-            bit = self.next_bit()
-            block |= bit << i
+        bits = self.peek_bits(block_size, start_offset=start_offset)
 
-        return block
+        value = 0
+        if msb_first:
+            for bit in bits:
+                value = (value << 1) | bit
+        else:
+            for i, bit in enumerate(bits):
+                value |= bit << i
+        return value
 
-    # -------------------------------------------------
-
-    def generate_blocks(self, block_size, n_blocks):
-
-        blocks = []
-
-        for _ in range(n_blocks):
-
-            blocks.append(
-                self.generate_block(block_size)
-            )
-
-        return blocks
-
-    # -------------------------------------------------
-
-    def get_state(self):
-
+    def get_state(self) -> int:
         return self.lfsr.state
+
+    def reseed(self, new_seed: int) -> None:
+        self.lfsr.reseed(new_seed)
