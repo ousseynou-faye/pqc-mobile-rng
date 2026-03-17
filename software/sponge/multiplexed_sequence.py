@@ -26,7 +26,7 @@ class MultiplexedSequence:
     msb_first: bool = True
     phi: PhiFunction = field(init=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None: # Initialisation de la fonction phi après que les autres champs soient initialisés.
         self.phi = PhiFunction(
             sequence_s=self.seq_s,
             l=self.l,

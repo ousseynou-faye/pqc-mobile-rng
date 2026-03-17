@@ -1,10 +1,14 @@
+'''
+    Ce fichier contient la base de données des polynômes primitifs utilisés pour configurer les LFSR.
+'''
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, List
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True) # On rend la classe immuable pour garantir que les polynômes primitifs ne peuvent pas être modifiés après leur création.
 class PrimitivePolynomial:
     degree: int
     taps: tuple[int, ...]

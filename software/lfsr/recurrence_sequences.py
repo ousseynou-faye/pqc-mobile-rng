@@ -19,7 +19,7 @@ class RecurrenceSequence:
     def __post_init__(self) -> None:
         self.lfsr = LFSR(degree=self.degree, seed=self.seed, taps=self.taps)
 
-    @property
+    @property # Expose la période maximale du LFSR, qui est aussi la période de la suite générée.
     def period(self) -> int:
         return self.lfsr.max_period()
 
@@ -31,7 +31,7 @@ class RecurrenceSequence:
         )
 
     def next_bit(self) -> int:
-        return self.lfsr.step()
+        return self.lfsr.step() 
 
     def advance(self, steps: int) -> None:
         self.lfsr.advance(steps)

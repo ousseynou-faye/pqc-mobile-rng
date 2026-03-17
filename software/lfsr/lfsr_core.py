@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations # Permet les annotations de type auto-référencées (Python 3.7+)
 
 from dataclasses import dataclass
 from typing import Optional

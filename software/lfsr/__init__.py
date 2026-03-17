@@ -1,3 +1,6 @@
+'''
+    “Quand quelqu’un importe software.lfsr, voici ce qu’on veut exposer.”
+'''
 from .primitive_polynomials import PrimitivePolynomial, get_polynomial, list_supported_degrees
 from .lfsr_core import LFSR
 from .recurrence_sequences import RecurrenceSequence

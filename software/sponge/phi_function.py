@@ -12,7 +12,7 @@ class PhiFunction:
     Fonction phi(l, n).
 
     Remarque importante :
-    le papier A3 définit phi comme une fonction probabiliste obtenue
+    le Multiplexed Sponge définit phi comme une fonction probabiliste obtenue
     par sélection de l bits dans S(N,l), mais sans imposer une seule
     règle algorithmique de codage.
 
@@ -40,16 +40,16 @@ class PhiFunction:
                 raise ValueError("Tous les offsets doivent être >= 0.")
 
     def compute(self) -> int:
-        if self.offsets is None:
+        if self.offsets is None: # Lecture d'une fenêtre contiguë de l bits à partir de la position courante.
             bits = self.sequence_s.peek_bits(self.l, start_offset=0)
         else:
             bits = [self.sequence_s.peek_bit(offset=o) for o in self.offsets]
 
         if not self.msb_first:
-            bits = list(reversed(bits))
+            bits = list(reversed(bits)) # On inverse l'ordre des bits pour que le bit à offset 0 soit le LSB.
 
         value = 0
         for bit in bits:
-            value = (value << 1) | bit
+            value = (value << 1) | bit 
 
         return value

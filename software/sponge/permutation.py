@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def _rotl(x: int, r: int, size: int) -> int:
+def _rotl(x: int, r: int, size: int) -> int: # Rotation circulaire à gauche de x de r positions sur un espace de taille bits.
     mask = (1 << size) - 1
     r %= size
     return ((x << r) & mask) | ((x & mask) >> (size - r))
