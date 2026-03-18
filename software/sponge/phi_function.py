@@ -1,26 +1,32 @@
+"""Definition of the prototype phi(l, n) selector.
+
+The implementation keeps the mathematical relation intentionally simple:
+``phi(l, n)`` is derived from bits previewed from the current state of the
+recurrence sequence ``s`` without consuming it.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
 
+from ..bit_utils import pack_bits
 from ..lfsr.recurrence_sequences import RecurrenceSequence
 
 
 @dataclass
 class PhiFunction:
-    """
-    Fonction phi(l, n).
+    """Prototype implementation of ``phi(l, n)``.
 
-    Remarque importante :
-    le Multiplexed Sponge définit phi comme une fonction probabiliste obtenue
-    par sélection de l bits dans S(N,l), mais sans imposer une seule
-    règle algorithmique de codage.
+    Conventions:
+    - if ``offsets`` is ``None``, phi reads a contiguous window of ``l`` bits
+      starting at the current index of sequence ``s``;
+    - otherwise phi reads the bits at the explicit offsets provided in
+      ``offsets``;
+    - ``msb_first=True`` means the first selected bit is the most significant
+      bit of the resulting integer.
 
-    Convention retenue pour ce prototype :
-    - si offsets est None :
-        phi lit une fenêtre contiguë de l bits à partir de la position courante
-    - si offsets est fourni :
-        phi lit les bits aux décalages explicitement demandés
+    The sequence is never consumed by ``compute()``.
     """
 
     sequence_s: RecurrenceSequence
@@ -29,27 +35,24 @@ class PhiFunction:
     msb_first: bool = True
 
     def __post_init__(self) -> None:
+        """Validate ``l`` and the optional explicit offset schedule."""
+
         if self.l <= 0:
-            raise ValueError("l doit être > 0.")
+            raise ValueError("l doit etre > 0.")
 
         if self.offsets is not None:
             self.offsets = tuple(int(o) for o in self.offsets)
             if len(self.offsets) != self.l:
-                raise ValueError("La taille de offsets doit être égale à l.")
+                raise ValueError("La taille de offsets doit etre egale a l.")
             if any(o < 0 for o in self.offsets):
-                raise ValueError("Tous les offsets doivent être >= 0.")
+                raise ValueError("Tous les offsets doivent etre >= 0.")
 
     def compute(self) -> int:
-        if self.offsets is None: # Lecture d'une fenêtre contiguë de l bits à partir de la position courante.
+        """Compute the current value of ``phi(l, n)`` without mutating ``s``."""
+
+        if self.offsets is None:
             bits = self.sequence_s.peek_bits(self.l, start_offset=0)
         else:
             bits = [self.sequence_s.peek_bit(offset=o) for o in self.offsets]
 
-        if not self.msb_first:
-            bits = list(reversed(bits)) # On inverse l'ordre des bits pour que le bit à offset 0 soit le LSB.
-
-        value = 0
-        for bit in bits:
-            value = (value << 1) | bit 
-
-        return value
+        return pack_bits(bits, msb_first=self.msb_first)

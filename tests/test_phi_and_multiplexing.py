@@ -24,6 +24,17 @@ def test_phi_with_explicit_offsets():
     assert 0 <= value < (1 << 3)
 
 
+def test_phi_msb_first_flag_changes_bit_assembly_only():
+    s_msb = RecurrenceSequence(degree=8, seed=0xA5)
+    s_lsb = RecurrenceSequence(degree=8, seed=0xA5)
+
+    phi_msb = PhiFunction(sequence_s=s_msb, l=4, msb_first=True)
+    phi_lsb = PhiFunction(sequence_s=s_lsb, l=4, msb_first=False)
+
+    assert phi_msb.compute() == 0b1010
+    assert phi_lsb.compute() == 0b0101
+
+
 def test_multiplexed_sequence_uses_t_n_plus_phi():
     s = RecurrenceSequence(degree=8, seed=0xA5)
     t = RecurrenceSequence(degree=9, seed=0x101)

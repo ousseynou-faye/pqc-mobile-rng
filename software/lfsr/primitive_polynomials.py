@@ -1,6 +1,9 @@
-'''
-    Ce fichier contient la base de données des polynômes primitifs utilisés pour configurer les LFSR.
-'''
+"""Primitive polynomial catalogue used to parameterise the prototype LFSRs.
+
+The table is intentionally small and explicit because the current objective is
+to stabilise a research prototype, not to implement a full polynomial search
+engine.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +11,10 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 
-@dataclass(frozen=True) # On rend la classe immuable pour garantir que les polynômes primitifs ne peuvent pas être modifiés après leur création.
+@dataclass(frozen=True)
 class PrimitivePolynomial:
+    """Description of one primitive polynomial used by an LFSR configuration."""
+
     degree: int
     taps: tuple[int, ...]
     polynomial: str
@@ -40,10 +45,14 @@ PRIMITIVE_POLYNOMIALS: Dict[int, PrimitivePolynomial] = {
 
 
 def get_polynomial(degree: int) -> PrimitivePolynomial:
+    """Return the primitive polynomial declared for the requested degree."""
+
     if degree not in PRIMITIVE_POLYNOMIALS:
-        raise ValueError(f"Aucun polynôme primitif défini pour le degré {degree}.")
+        raise ValueError(f"Aucun polynome primitif defini pour le degre {degree}.")
     return PRIMITIVE_POLYNOMIALS[degree]
 
 
 def list_supported_degrees() -> List[int]:
+    """Return the sorted list of supported LFSR degrees."""
+
     return sorted(PRIMITIVE_POLYNOMIALS.keys())

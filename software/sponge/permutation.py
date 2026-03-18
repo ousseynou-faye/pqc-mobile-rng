@@ -1,32 +1,35 @@
+"""Educational permutation used by the prototype sponge state."""
+
 from __future__ import annotations
 
 
-def _rotl(x: int, r: int, size: int) -> int: # Rotation circulaire à gauche de x de r positions sur un espace de taille bits.
+def _rotl(x: int, r: int, size: int) -> int:
+    """Rotate ``x`` to the left on a fixed ``size``-bit space."""
+
     mask = (1 << size) - 1
     r %= size
     return ((x << r) & mask) | ((x & mask) >> (size - r))
 
 
 def default_permutation(state: int, size: int) -> int:
-    """
-    Permutation éducative et déterministe pour le prototype mathématique.
+    """Apply a deterministic diffusion-oriented permutation to the sponge state.
 
-    Important :
-    - ce n'est pas encore la primitive finale de production ;
-    - elle sert à modéliser la diffusion du sponge de manière propre.
+    This is a pedagogical placeholder for the research prototype. It is kept
+    deterministic and simple on purpose and must not be interpreted as the
+    final production primitive.
     """
 
     if size <= 0:
-        raise ValueError("size doit être > 0.")
+        raise ValueError("size doit etre > 0.")
 
     mask = (1 << size) - 1
     x = state & mask
 
     x ^= _rotl(x, 7, size)
-    x ^= (x >> 11)
+    x ^= x >> 11
     x = (x * 0x9E3779B185EBCA87) & mask
     x ^= _rotl(x, 13, size)
-    x ^= (x >> 17)
+    x ^= x >> 17
     x = _rotl(x, 3, size)
 
     return x & mask
