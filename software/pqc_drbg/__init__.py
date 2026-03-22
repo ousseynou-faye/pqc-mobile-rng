@@ -18,7 +18,7 @@ from .errors import (
 from .interfaces import DRBGEngine, EngineHealth
 from .params import LWRParams, default_lwr_params
 from .policy import DRBGPolicy, EngineSelectionMode
-from .state import DRBGFlags, DRBGState, DRBGStatus
+from .state import DRBGEvent, DRBGFlags, DRBGLifecycleState, DRBGState, DRBGStatus, TransitionRecord
 
 __all__ = [
     "DRBGError",
@@ -35,7 +35,10 @@ __all__ = [
     "DRBGPolicy",
     "EngineSelectionMode",
     "DRBGFlags",
+    "DRBGEvent",
+    "DRBGLifecycleState",
     "DRBGState",
     "DRBGStatus",
+    "TransitionRecord",
     "PQCCompositeDRBG",
 ]

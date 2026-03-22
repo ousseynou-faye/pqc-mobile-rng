@@ -180,6 +180,44 @@ class ModuleLWRCore(DRBGEngine):
             "last_output_digest_prefix": self._last_output_digest[:8].hex() if self._last_output_digest else "",
         }
 
+    def export_private_state(self) -> dict[str, object]:
+        """
+        J'exporte ici l'état privé du moteur Module-LWR.
+        """
+
+        return {
+            "initialized": bool(self._initialized),
+            "counter": int(self._counter),
+            "seed_a_hex": self._seed_a.hex() if self._seed_a is not None else None,
+            "secret_vector": self._secret_vector,
+            "last_output_digest_hex": self._last_output_digest.hex() if self._last_output_digest else "",
+            "params": {
+                "n": self.params.n,
+                "k": self.params.k,
+                "q": self.params.q,
+                "p": self.params.p,
+                "secret_bound": self.params.secret_bound,
+            },
+        }
+
+    def import_private_state(self, payload: dict[str, object]) -> None:
+        """
+        Je restaure ici l'état privé du moteur Module-LWR.
+        """
+
+        self._initialized = bool(payload["initialized"])
+        self._counter = int(payload["counter"])
+        seed_a_hex = payload.get("seed_a_hex")
+        self._seed_a = bytes.fromhex(seed_a_hex) if isinstance(seed_a_hex, str) and seed_a_hex else None
+        secret_vector = payload.get("secret_vector")
+        self._secret_vector = secret_vector if isinstance(secret_vector, list) else None
+        last_output_digest_hex = payload.get("last_output_digest_hex")
+        self._last_output_digest = (
+            bytes.fromhex(last_output_digest_hex)
+            if isinstance(last_output_digest_hex, str) and last_output_digest_hex
+            else b""
+        )
+
     def zeroize(self) -> None:
         """Je détruis ici au mieux l'état sensible maintenu par le prototype."""
 

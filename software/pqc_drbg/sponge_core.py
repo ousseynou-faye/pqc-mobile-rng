@@ -114,6 +114,80 @@ class MultiplexedSpongeAdapter(DRBGEngine):
             "seed_digest_prefix": self._seed_digest[:8].hex() if self._seed_digest else "",
         }
 
+    def _export_instance_state(self) -> dict[str, object] | None:
+        """J'essaie ici de capturer un snapshot fidèle de l'instance sponge sous-jacente."""
+
+        if self._instance is None:
+            return None
+
+        snapshot: dict[str, object] = {}
+        state_obj = getattr(self._instance, "state", None)
+        if state_obj is not None and hasattr(state_obj, "get_state"):
+            snapshot["sponge_state"] = int(state_obj.get_state())
+
+        sequence = getattr(self._instance, "sequence", None)
+        if sequence is not None:
+            seq_s = getattr(sequence, "seq_s", None)
+            seq_t = getattr(sequence, "seq_t", None)
+            if seq_s is not None and hasattr(seq_s, "get_state"):
+                snapshot["seq_s_state"] = int(seq_s.get_state())
+            if seq_t is not None and hasattr(seq_t, "get_state"):
+                snapshot["seq_t_state"] = int(seq_t.get_state())
+
+        return snapshot or None
+
+    def _restore_instance_state(self, instance_state: dict[str, object] | None) -> None:
+        """Je restaure ici un snapshot de l'instance quand le moteur sous-jacent l'autorise."""
+
+        if self._instance is None or not instance_state:
+            return
+
+        state_obj = getattr(self._instance, "state", None)
+        if state_obj is not None and hasattr(state_obj, "set_state") and "sponge_state" in instance_state:
+            state_obj.set_state(int(instance_state["sponge_state"]))
+
+        sequence = getattr(self._instance, "sequence", None)
+        if sequence is not None:
+            seq_s = getattr(sequence, "seq_s", None)
+            seq_t = getattr(sequence, "seq_t", None)
+            if seq_s is not None and hasattr(seq_s, "reseed") and "seq_s_state" in instance_state:
+                seq_s.reseed(int(instance_state["seq_s_state"]))
+            if seq_t is not None and hasattr(seq_t, "reseed") and "seq_t_state" in instance_state:
+                seq_t.reseed(int(instance_state["seq_t_state"]))
+
+    def export_private_state(self) -> dict[str, object]:
+        """
+        J'exporte ici l'état privé du moteur sponge.
+        """
+
+        return {
+            "initialized": bool(self._initialized),
+            "seed_digest_hex": self._seed_digest.hex(),
+            "generate_counter": int(self._generate_counter),
+            "instance_state": self._export_instance_state(),
+        }
+
+    def import_private_state(self, payload: dict[str, object]) -> None:
+        """
+        Je restaure ici l'état privé du moteur sponge.
+        """
+
+        seed_digest_hex = payload.get("seed_digest_hex")
+        self._seed_digest = (
+            bytes.fromhex(seed_digest_hex)
+            if isinstance(seed_digest_hex, str) and seed_digest_hex
+            else b""
+        )
+        self._initialized = bool(payload["initialized"])
+        self._generate_counter = int(payload.get("generate_counter", 0))
+        if self._initialized:
+            self._instance = self._build_instance_from_digest(self._seed_digest)
+            instance_state = payload.get("instance_state")
+            if isinstance(instance_state, dict):
+                self._restore_instance_state(instance_state)
+        else:
+            self._instance = None
+
     def zeroize(self) -> None:
         """Je détruis ici l'état logique du moteur secondaire."""
 

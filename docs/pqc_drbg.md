@@ -186,7 +186,7 @@ nouvelle instanciation dans un nouveau cycle logiciel.
 ## Gestion des erreurs
 
 Je sépare plusieurs familles d'erreurs dans `software/pqc_drbg/errors.py` :
-- `DRBGError`
+- `DRBGError` 
 - `InvalidDRBGStateError`
 - `InvalidStateTransitionError`
 - `HealthCheckError`

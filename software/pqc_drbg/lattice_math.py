@@ -93,7 +93,7 @@ def seed_to_matrix(seed_a: bytes, k: int, n: int, q: int) -> Matrix:
 def encode_vector(vector: Vector, modulus: int) -> bytes:
     out = bytearray()
     for poly in vector:
-        for coeff in poly:
+        for coeff in poly:  
             c = coeff % modulus
             out.extend(int(c).to_bytes(2, 'big'))
     return bytes(out)
