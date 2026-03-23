@@ -23,10 +23,10 @@ class CPUJitterSource:
     estimé puis conditionné.
     """
 
-    sample_count: int = 512
+    sample_count: int = 512 
     inner_loops: int = 256
-    lsb_count: int = 2
-    warmup_rounds: int = 32
+    lsb_count: int = 2 
+    warmup_rounds: int = 32 
 
     def __post_init__(self) -> None:
         if self.sample_count <= 0:

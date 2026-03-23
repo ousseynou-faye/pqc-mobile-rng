@@ -12,10 +12,12 @@ Je cherche d'abord à **collecter**, **contrôler** et **accumuler** de l'entrop
 ## Sources retenues
 
 ### 1. CPU jitter
+
 Je l'utilise comme source primaire.
 Je mesure des variations fines de temps d'exécution sur une boucle dense.
 
 ### 2. Capteurs inertiels
+
 Je les utilise comme source secondaire de diversification.
 Je ne conserve que les bits faibles (LSB) des lectures.
 

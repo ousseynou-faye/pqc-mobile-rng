@@ -12,11 +12,13 @@ Je suis la forme générale :
 ## Pourquoi cette étape existe
 
 Le DRBG ne doit jamais recevoir directement une graine brute :
+
 - elle peut être biaise ;
 - elle peut contenir des corrélations ;
 - elle peut dépendre fortement de la source physique.
 
 Le conditionneur sert donc à :
+
 1. extraire l'entropie utile ;
 2. réduire les biais résiduels ;
 3. produire une seed de longueur fixe.
