@@ -19,7 +19,7 @@ Je mesure des variations fines de temps d'exécution sur une boucle dense.
 ### 2. Capteurs inertiels
 
 Je les utilise comme source secondaire de diversification.
-Je ne conserve que les bits faibles (LSB) des lectures.
+Je ne conserve que les bits fiables (LSB) des lectures.
 
 ## Fichiers
 
@@ -46,7 +46,7 @@ sensor = SensorEntropySource(frame_count=128, lsb_count=2)
 
 pool = EntropyPool(target_min_entropy_bits=256.0, target_min_symbols=512)
 
-pool.add_chunk(cpu.collect())
+pool.add_chunk(cpu.collect()) 
 pool.add_chunk(sensor.collect())
 
 snapshot = pool.snapshot()
