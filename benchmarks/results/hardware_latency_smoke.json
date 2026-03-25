@@ -1,0 +1,9 @@
+{
+  "measurement_type": "not_measured",
+  "source": "none",
+  "values": {},
+  "notes": [
+    "Aucune latence materielle reelle n'est fournie dans cet environnement.",
+    "Une simulation VHDL/FPGA ou un rapport de synthese externe est necessaire pour renseigner cette section."
+  ]
+}

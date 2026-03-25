@@ -1,103 +1,202 @@
-# API Specification - Baseline officielle du prototype
+# Specification de l'API
 
-## 1. Nature de l'API
+## 1. Objectif / Perimetre
 
-La forme officielle de l'API du prototype est une librairie Python locale, utilisable comme SDK de démonstration.
+Ce document decrit la surface publique reellement exposee par le depot pour le
+RNG post-quantique.
 
-Cette API expose le coeur RNG aux couches applicatives sans imposer, dans la baseline actuelle, un service HTTP ni une architecture distribuée.
+L'API actuelle est un SDK Python local. Elle n'est ni un service HTTP natif, ni
+une API mobile finale.
 
-## 2. Objet de l'API
+## 2. Vue d'ensemble
 
-L'API doit permettre de :
+Le depot expose deux niveaux d'interface :
 
-- initialiser le générateur ;
-- produire des octets aléatoires ;
-- déclencher un reseed ;
-- observer le statut logique et la santé exportable ;
-- remettre l'état à zéro.
+- un coeur DRBG dans `software/pqc_drbg/` ;
+- un SDK Python plus stable dans `software/api/`.
 
-## 3. Composant de référence
+Le point d'entree recommande pour l'usage applicatif local est `software.api`.
 
-Le composant de référence est le gestionnaire composite :
+## 3. Structure / Surface publique
 
-```python
-PQCCompositeDRBG
+Les symboles publics exposes par `software/api/__init__.py` sont :
+
+- `get_rng_service`
+- `RNGService`
+- `RNGServiceConfig`
+- `rng_init`
+- `rng_get_bytes`
+- `rng_generate`
+- `rng_health`
+- `rng_reseed`
+- `rng_restore_state`
+- `rng_zeroize`
+- `RNGAPIError`
+- `RNGNotInitializedError`
+- `RNGInvalidLengthError`
+- `RNGStateError`
+- `RNGRestoreError`
+- `RNGProfileError`
+
+Le coeur DRBG expose aussi `PQCCompositeDRBG`, mais le SDK Python reste la
+surface la plus simple pour la soutenance et les usages locaux.
+
+## 4. Interfaces / Composants
+
+### 4.1 Service canonique
+
+`RNGService` dans `software/api/rng_service.py` orchestre la baseline :
+
+```text
+SRC -> COND -> DRBG -> STATE
 ```
 
-Il orchestre :
+Methodes principales :
 
-- `Module-LWR` comme moteur nominal ;
-- `Multiplexed Sponge` comme moteur secondaire ;
-- la politique de sélection ;
-- la machine à états.
+- `build_entropy_seed()`
+- `instantiate_rng(...)`
+- `generate_bytes(length, additional_input=b"")`
+- `reseed_rng(additional_input=b"")`
+- `checkpoint_state(...)`
+- `restore_state(...)`
+- `zeroize()`
+- `sdk_status()`
+- `health_status()`
 
-## 4. Interface officielle observée dans le dépôt
+### 4.2 Wrappers publics SDK
 
-### 4.1 `instantiate(seed_material: bytes, personalization: bytes = b"") -> None`
+#### `rng_init(personalization: bytes | None = None, force_reinit: bool = False, profile: str | None = None) -> bool`
 
-Initialise le DRBG.
+- initialise le service RNG canonique pour le processus courant ;
+- supporte les profils `baseline` et `default` ;
+- renvoie `True` si le RNG est pret.
 
-Préconditions :
+#### `rng_get_bytes(length: int) -> bytes`
 
-- `seed_material` ne doit pas être vide ;
-- le système ne doit pas être en `fail_stop`.
+- renvoie des octets pseudo-aleatoires via le SDK public ;
+- impose une taille strictement positive ;
+- impose une limite publique de `4096` octets par appel.
 
-Effets :
+#### `rng_generate(length: int) -> bytes`
 
-- crée l'état initial ;
-- sélectionne le moteur actif selon la politique ;
-- place le système dans un état prêt.
+- alias public de `rng_get_bytes`.
 
-### 4.2 `generate(nbytes: int, additional_input: bytes = b"") -> bytes`
+#### `rng_health() -> dict`
 
-Retourne `nbytes` octets pseudo-aléatoires.
+- renvoie un statut public non sensible ;
+- ne doit pas exposer seed, entropie brute ni etat interne complet.
 
-Préconditions :
+#### `rng_reseed(additional_input: bytes | None = None) -> bool`
 
-- le système doit être initialisé ;
-- le système ne doit pas être en `need_reseed` ni `fail_stop`.
+- force un reseed controle du RNG courant.
 
-Effets :
+#### `rng_restore_state(payload_metadata: dict | None = None) -> bool`
 
-- consulte la santé du moteur actif ;
-- produit la sortie ;
-- met à jour les compteurs ;
-- fait évoluer l'état interne.
+- restaure un etat scelle via la couche `STATE`.
 
-### 4.3 `reseed(seed_material: bytes, additional_input: bytes = b"", reason: str = "manual_reseed") -> None`
+#### `rng_zeroize() -> bool`
 
-Rafraîchit l'état avec une nouvelle matière d'initialisation.
+- efface l'etat memoire maintenu par le SDK pour la session courante.
 
-Préconditions :
+### 4.3 Fonctions utilitaires exposees mais plus internes
 
-- le système doit déjà être initialisé ;
-- le système ne doit pas être `zeroized` sans nouvelle instanciation.
+Le depot expose aussi des wrappers fins non necessairement destines a la surface
+la plus simple :
 
-Effets :
+- `build_entropy_seed()`
+- `instantiate_rng()`
+- `generate_bytes()`
+- `reseed_rng()`
+- `checkpoint_state()`
+- `restore_state()`
 
-- réinjecte une nouvelle seed ;
-- remet le compteur de requêtes à zéro ;
-- restaure un état prêt à générer.
+Ils sont reels dans le depot, mais la documentation de soutenance peut rester
+centree sur `rng_init / rng_get_bytes / rng_health / rng_reseed / rng_restore_state / rng_zeroize`.
 
-### 4.4 `export_state() -> dict`
+## 5. Hypotheses
 
-Retourne un export non sensible destiné au diagnostic, au statut logique et à l'observabilité.
+- L'API est utilisee localement dans un processus Python.
+- La machine a etats du service canonique pilote l'autorisation de generation et
+  de reseed.
+- Le SDK ne doit pas exposer de materiau sensible dans sa surface publique.
 
-Dans l'implémentation actuelle, c'est ce point d'entrée qui porte l'information principale de `health/status`, car il expose notamment :
+## 6. Comportements attendus
 
-- `manager_state.lifecycle_state` ;
-- `manager_state.flags` ;
-- `active_engine_state`.
+### 6.1 Initialisation
 
-### 4.5 `zeroize() -> None`
+Avant toute generation publique, il faut appeler :
 
-Efface au mieux l'état logiciel maintenu par le prototype.
+```python
+rng_init(...)
+```
 
-## 5. États logiques attendus
+ou instancier explicitement `RNGService`.
 
-L'API repose sur une machine à états explicite.
+### 6.2 Generation
 
-États principaux du code courant :
+`rng_get_bytes(length)` :
+
+- verifie `length` ;
+- exige un RNG deja initialise ;
+- refuse les tailles au-dela de la limite publique.
+
+### 6.3 Reseed
+
+`rng_reseed()` :
+
+- exige un RNG deja initialise ;
+- reconstruit une seed fraiche via la baseline `SRC -> COND -> DRBG`.
+
+### 6.4 Health / status
+
+`rng_health()` expose un etat public, notamment :
+
+- `initialized`
+- `instantiated`
+- `state_available`
+- `reseed_supported`
+- `last_operation`
+- `profile`
+- `health_status`
+- `lifecycle_state`
+
+### 6.5 Export / restore
+
+La surface publique supporte la restauration via `rng_restore_state()`.
+
+La creation d'un checkpoint est reelle dans le depot, mais elle passe surtout
+par `RNGService.checkpoint_state(...)` ou par le wrapper fin `checkpoint_state(...)`.
+
+### 6.6 Zeroize
+
+`rng_zeroize()` :
+
+- efface l'etat memoire du service courant ;
+- remet le SDK dans un etat non initialise.
+
+## 7. Gestion d'erreurs
+
+Erreurs publiques principales :
+
+- `RNGAPIError`
+- `RNGNotInitializedError`
+- `RNGInvalidLengthError`
+- `RNGStateError`
+- `RNGRestoreError`
+- `RNGProfileError`
+
+Principes :
+
+- les erreurs doivent rester explicites ;
+- la surface publique ne doit pas divulguer de secret ;
+- les details sensibles du DRBG ne doivent pas etre exposes dans les messages.
+
+## 8. Machine a etats logique
+
+Le coeur du depot repose sur une machine a etats explicite, exposee
+indirectement par `export_state()` et `sdk_status()`.
+
+Etats principaux :
 
 - `uninitialized`
 - `ready`
@@ -105,51 +204,54 @@ L'API repose sur une machine à états explicite.
 - `fail_stop`
 - `zeroized`
 
-Le mode de recherche dégradé n'est pas un état séparé de la machine ; il est représenté par le drapeau `manager_state.flags.degraded_research`.
+Le mode de recherche degrade est represente par un drapeau logique et non par un
+etat public distinct.
 
-## 6. Règles de conception de l'API
-
-### 6.1 Pas d'accès direct aux secrets
-
-L'utilisateur de l'API ne doit pas manipuler directement :
-
-- le vecteur secret interne ;
-- les graines privées ;
-- l'état interne complet du moteur.
-
-### 6.2 Politique explicite
-
-Toute déviation du mode nominal doit être rendue visible par la politique et par l'état.
-
-### 6.3 Pas de masquage silencieux des fautes critiques
-
-Une erreur de sécurité critique ne doit pas être dissimulée par :
-
-- un fallback automatique opaque ;
-- un redémarrage implicite ;
-- un changement silencieux de moteur.
-
-## 7. Choix officiellement rejetés pour la baseline
-
-Les éléments suivants ne constituent pas l'API officielle actuelle :
-
-- un service HTTP comme mode principal ;
-- une interface Android native complète ;
-- une passerelle réseau vers un matériel distant.
-
-Ces possibilités peuvent exister plus tard comme wrappers ou démonstrateurs, mais elles sont hors baseline.
-
-## 8. Exemple minimal d'utilisation
+## 9. Exemple minimal d'utilisation
 
 ```python
-from software.pqc_drbg.drbg_engine import PQCCompositeDRBG
+from software.api import rng_health, rng_init, rng_reseed, rng_get_bytes, rng_zeroize
 
-rng = PQCCompositeDRBG()
-rng.instantiate(b"seed-demo")
-out = rng.generate(32)
-status = rng.export_state()
+rng_init(force_reinit=True)
+data = rng_get_bytes(32)
+status = rng_health()
+rng_reseed()
+rng_zeroize()
 ```
 
-## 9. Résumé
+Exemple avec service canonique :
 
-L'API officielle de la baseline est une API Python locale, simple et auditée, centrée sur un composant unique `PQCCompositeDRBG`, avec `Module-LWR` comme moteur nominal et `Multiplexed Sponge` comme moteur secondaire de recherche. La surface publique réellement constatée dans le dépôt est `instantiate / generate / reseed / export_state / zeroize`, l'information de santé et de statut étant actuellement portée par `export_state()` plutôt que par un service réseau ou une méthode dédiée supplémentaire.
+```python
+from software.api import get_rng_service
+
+service = get_rng_service(reset=True)
+service.instantiate_rng()
+data = service.generate_bytes(32)
+status = service.sdk_status()
+```
+
+## 10. Limites
+
+- Il ne s'agit pas d'une API mobile finale.
+- Il n'existe pas de service HTTP natif dans la baseline.
+- La persistance securisee reste une simulation logicielle.
+- Certaines fonctions sont des wrappers pratiques pour tests et demo, pas une
+  promesse de stabilite ABI a long terme.
+
+## 11. Statut actuel
+
+### Implemente
+
+- SDK Python local
+- service canonique `RNGService`
+- wrappers publics de base
+- health public non sensible
+- zeroize et restauration d'etat
+
+### Futur possible
+
+- wrappers mobiles natifs ;
+- couche HTTP ou IPC ;
+- adaptation Android ou embarquee.
+
+Ces extensions futures ne doivent pas etre presentees comme deja disponibles.

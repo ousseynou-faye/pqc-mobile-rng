@@ -1,0 +1,21 @@
+{
+  "status": "not_measured",
+  "collection_mode": "external_meter_required",
+  "environment": {
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "system": "Windows",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2 (tags/v3.14.2:df79316, Dec  5 2025, 17:18:21) [MSC v.1944 64 bit (AMD64)]",
+    "is_arm": false,
+    "environment_type": "local_python_benchmark"
+  },
+  "unit": null,
+  "measurement_window_seconds": null,
+  "hardware_used": null,
+  "measured_values": null,
+  "notes": [
+    "Aucune mesure energetique reelle n'a ete effectuee dans cet environnement.",
+    "Un wattmetre externe, ADB batterystats ou Android Profiler est requis pour une mesure credible."
+  ]
+}

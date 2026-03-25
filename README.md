@@ -1,87 +1,159 @@
-# Démonstration globale du projet
+# Deploiement d'un RNG Mobile Post-Quantique
 
-## But
+Prototype academique de RNG post-quantique structure autour de la baseline :
 
-Dans ce document, j'explique comment lancer la démonstration complète du projet
-`SRC -> COND -> DRBG -> STATE`.
-
-Le point d'entrée principal est :
-
-- `demo/run_full_project_demo.py`
-
-## Objectif
-
-Avec cette démo, je montre de manière structurée :
-
-- l'architecture globale ;
-- la collecte d'entropie brute ;
-- le conditionnement Toeplitz + SHAKE-256 ;
-- le moteur nominal `Module-LWR` ;
-- le moteur secondaire `Multiplexed Sponge` ;
-- le gestionnaire composite et ses politiques ;
-- la machine à états ;
-- la couche `STATE` / TEE simulé ;
-- les vérifications de sécurité essentielles.
-
-## Commande d'exécution
-
-Depuis la racine `pqc_mobile_rng`, je lance :
-
-```powershell
-python demo/run_full_project_demo.py
+```text
+SRC -> COND -> DRBG -> STATE
 ```
 
-Si je veux utiliser explicitement l'interpréteur du virtualenv local :
+Le depot fournit aujourd'hui un prototype executable principalement en Python,
+une API de type SDK local, une demonstration complete, une couche de validation
+experimentale et une couche de benchmark logiciel.
+
+## Statut du projet
+
+- statut : prototype academique / experimental
+- interface principale actuelle : SDK Python local
+- moteur nominal : Module-LWR
+- moteur secondaire : Multiplexed Sponge
+- conditionneur officiel : Toeplitz + SHAKE-256
+- NTT : optimisation future, non active dans la baseline executable actuelle
+
+## Architecture resumee
+
+```text
+SRC : collecte d'entropie
+  -> COND : Toeplitz + SHAKE-256
+  -> DRBG : Module-LWR (nominal) / Multiplexed Sponge (secondaire)
+  -> STATE : machine a etats + persistance protegee simulee
+```
+
+Documentation detaillee :
+
+- [Architecture](docs/architecture_rng.md)
+- [API](docs/api_specification.md)
+- [Modele de securite](docs/security_model.md)
+- [Conception materielle](docs/hardware_design.md)
+- [Demonstration complete](docs/full_demo.md)
+
+## Structure du depot
+
+- `software/` : implementation du prototype
+- `software/entropy/` : sources d'entropie et health checks
+- `software/conditioner/` : Toeplitz + SHAKE-256
+- `software/pqc_drbg/` : coeur DRBG et machine a etats
+- `software/state_manager/` : sealing, restauration et anti-rollback simules
+- `software/api/` : SDK Python local
+- `analysis/` : validation statistique et reporting
+- `benchmarks/` : benchmarks logiciels, energie et latence materielle
+- `hardware/` : RTL, simulation, synthese et cibles FPGA
+- `demo/` : demonstration complete
+- `tests/` : tests unitaires et d'integration
+- `docs/` : documentation technique
+
+## Installation
+
+Depuis la racine `pqc_mobile_rng` :
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Si `pytest` n'est pas deja disponible dans l'environnement, l'installation du
+venv local reste recommandee pour reproduire les commandes du depot.
+
+## Lancement principal
+
+Demonstration complete :
 
 ```powershell
 venv\Scripts\python.exe demo/run_full_project_demo.py
 ```
 
-## Ce que la démo affiche
+Usage SDK minimal :
 
-La sortie terminal est organisée en sections numérotées.
+```python
+from software.api import rng_health, rng_init, rng_get_bytes
 
-Je montre notamment :
+rng_init(force_reinit=True)
+data = rng_get_bytes(32)
+status = rng_health()
+```
 
-- les modules associés à chaque couche ;
-- les symboles collectés par `CPUJitterSource` et `SensorEntropySource` ;
-- les rapports de santé simples et les métadonnées de collecte ;
-- les octets bruts exportés par le pool ;
-- la chaîne `raw_data -> toeplitz_output -> Seedinit` ;
-- la génération nominale `Module-LWR` et l'effet d'un `reseed` ;
-- la génération du moteur secondaire `Multiplexed Sponge` ;
-- le moteur actif du gestionnaire composite selon la politique ;
-- les transitions `UNINITIALIZED -> READY -> NEED_RESEED -> FAIL_STOP -> ZEROIZED` ;
-- un blob scellé, sa restauration, puis un checkpoint complet du DRBG ;
-- la détection d'une altération d'intégrité ;
-- la détection d'un rollback.
+## Tests
 
-## Positionnement des moteurs
-
-Je garde une distinction explicite dans la démo :
-
-- `Module-LWR` est le moteur nominal ;
-- `Multiplexed Sponge` est un moteur secondaire de recherche ;
-- le fallback sponge n'est montré que comme comportement expérimental contrôlé.
-
-## Robustesse de la démo
-
-J'ai isolé les ajouts dans `demo/` et dans cette documentation.
-
-Je n'ai pas modifié :
-
-- les interfaces publiques de `software/entropy/` ;
-- les interfaces publiques de `software/conditioner/` ;
-- les interfaces publiques de `software/pqc_drbg/` ;
-- les interfaces publiques de `software/state_manager/`.
-
-La démo gère les erreurs par section et les rend visibles dans le terminal au
-lieu d'échouer silencieusement.
-
-## Suite logique
-
-Pour vérifier que la démo n'introduit pas de régression, je peux ensuite lancer :
+Exemple de suite ciblee :
 
 ```powershell
-python -m pytest tests/test_entropy_layer.py tests/test_conditioner_layer.py tests/test_pqc_drbg_complete.py tests/test_pqc_drbg_state_machine.py tests/test_state_manager.py -q
+venv\Scripts\python.exe -m pytest tests\test_entropy_layer.py tests\test_conditioner_layer.py tests\test_pqc_drbg_complete.py tests\test_public_api.py -q
 ```
+
+Validation experimentale recente :
+
+```powershell
+venv\Scripts\python.exe -m pytest tests\test_entropy_validation.py tests\test_statistical_smoke.py tests\test_benchmarks.py -q
+```
+
+## Validation statistique
+
+La couche `analysis/` couvre notamment :
+
+- validation prudente de la source d'entropie ;
+- comparaison avant / apres conditionnement ;
+- tests statistiques inspires de SP 800-22 ;
+- campagnes comparatives LWR vs Sponge ;
+- reporting JSON / CSV / Markdown.
+
+Ces resultats sont experimentaux et ne constituent pas une conformite NIST
+formelle.
+
+## Benchmarks
+
+La couche `benchmarks/` fournit :
+
+- benchmark logiciel local de `Module-LWR` et `Multiplexed Sponge` ;
+- cadre honnete pour energie (`not_measured` si aucune mesure reelle) ;
+- cadre honnete pour latence materielle (`not_measured` ou import de rapport).
+
+Smoke benchmark :
+
+```powershell
+venv\Scripts\python.exe benchmarks\run_all_benchmarks.py
+```
+
+## Documentation disponible
+
+- [docs/architecture_rng.md](docs/architecture_rng.md)
+- [docs/api_specification.md](docs/api_specification.md)
+- [docs/security_model.md](docs/security_model.md)
+- [docs/hardware_design.md](docs/hardware_design.md)
+- [docs/full_demo.md](docs/full_demo.md)
+
+## Limites connues
+
+- le projet n'est pas une API mobile finale ;
+- la baseline executable reste un SDK Python local ;
+- la couche `STATE` repose sur une simulation de TEE ;
+- les benchmarks actuels sont d'abord des benchmarks logiciels locaux ;
+- les tests statistiques ne sont pas une preuve cryptographique ;
+- l'energie reelle et la latence materielle reelle ne sont pas mesurees par
+  defaut dans le depot.
+
+## Avertissements methodologiques
+
+- ne pas presenter `Multiplexed Sponge` comme moteur nominal ;
+- ne pas presenter la NTT comme deja integree a la baseline executable ;
+- ne pas presenter les resultats AMD64 locaux comme des resultats smartphone ARM
+  sans execution sur cible reelle ;
+- ne pas revendiquer une conformite formelle SP 800-90A, SP 800-90B, SP 800-22,
+  FIPS ou CMVP.
+
+## Roadmap courte
+
+- renforcer la documentation et la tracabilite experimentale ;
+- executer des benchmarks sur vraie cible ARM quand elle est disponible ;
+- documenter ou importer des rapports materiels reels ;
+- etudier des optimisations futures, y compris la NTT, sans changer la baseline
+  de reference tant qu'elles ne sont pas effectivement integrees.

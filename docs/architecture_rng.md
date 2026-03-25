@@ -1,148 +1,205 @@
-# Architecture RNG - Baseline officielle du prototype
+# Architecture du RNG
 
-## 1. Vue d'ensemble
+## 1. Objectif / Perimetre
 
-L'architecture officielle du prototype mémoire est la suivante :
+Ce document decrit l'architecture de reference du prototype executable du projet
+`Deploiement d'un RNG Mobile Post-Quantique`.
 
-```text
-SRC  ->  COND  ->  DRBG  ->  STATE
-```
-
-- `SRC` : collecte d'entropie brute.
-- `COND` : conditionnement de l'entropie.
-- `DRBG` : génération déterministe post-quantique.
-- `STATE` : gestion, scellement et restauration de l'état.
-
-Cette structure est la seule architecture de référence pour la version actuelle du prototype.
-
-## 2. Couche SRC
-
-La couche `SRC` agrège plusieurs sources d'entropie non déterministes, principalement :
-
-- le `CPU jitter` ;
-- une source secondaire de type capteurs inertiels ou simulation équivalente.
-
-Son rôle n'est pas de produire directement une sortie uniforme, mais de fournir une matière première entropique à la couche suivante.
-
-## 3. Couche COND
-
-Le conditionneur officiel retenu est :
+La baseline logicielle actuelle est strictement :
 
 ```text
-Raw_Data -> Toeplitz Extractor -> SHAKE-256 -> Seedinit
+SRC -> COND -> DRBG -> STATE
 ```
 
-### Décision de gel
+Cette architecture est celle qui doit etre utilisee dans le memoire, la
+soutenance et la maintenance du depot.
 
-- `Toeplitz + SHAKE-256` est la seule formulation correcte du conditionneur actuel.
-- La formulation `Toeplitz + LWR` ne doit plus être utilisée pour décrire la couche `COND`.
-- `LWR` n'est pas un conditionneur ; c'est le coeur du moteur DRBG nominal.
+## 2. Vue d'ensemble
 
-## 4. Couche DRBG
+Le projet implemente un prototype academique de RNG structure en couches :
 
-### 4.1 Moteur nominal
+- `SRC` collecte une entropie brute issue de sources logicielles ou simulees.
+- `COND` transforme cette entropie en une seed d'initialisation exploitable.
+- `DRBG` produit la sortie pseudo-aleatoire a partir de cette seed.
+- `STATE` protege la persistance, la restauration et la logique de cycle de vie.
 
-Le moteur nominal du DRBG est `Module-LWR`.
+Le point d'integration principal pour l'usage applicatif est le SDK Python local
+dans `software/api/`.
 
-Il constitue la version principale du prototype logiciel et doit être présenté comme tel dans tout document final.
-
-### 4.2 Moteur secondaire
-
-Le moteur secondaire est `Multiplexed Sponge`.
-
-Son rôle est limité à :
-
-- la recherche ;
-- la comparaison expérimentale ;
-- un éventuel mode dégradé contrôlé par politique.
-
-Il ne remplace pas silencieusement le moteur nominal.
-
-### 4.3 Statut d'exécution
-
-Dans la baseline actuelle :
-
-- le mode nominal correspond à la politique `STRICT_LWR_ONLY` ;
-- un usage du `Multiplexed Sponge` doit être explicite, contrôlé et visible dans l'état exporté ;
-- un passage en mode dégradé de recherche ne doit jamais être présenté comme le comportement normal du prototype.
-
-## 5. Couche STATE
-
-La couche `STATE` protège l'état interne du DRBG.
-
-Dans le prototype actuel, elle est représentée par :
-
-- un gestionnaire d'état logiciel ;
-- un mécanisme de scellement / restauration simulé ;
-- une logique de détection d'altération et de rollback.
-
-La présence d'un TEE réel reste une cible de déploiement, mais la baseline exécutable actuelle repose sur une simulation logicielle contrôlée.
-
-## 6. Paramètres gelés du moteur nominal
-
-Le profil de référence du prototype est :
+## 3. Schema global
 
 ```text
-module_lwr_baseline_v1:
-  n = 256
-  k = 3
-  q = 8192
-  p = 1024
-  secret = {-1, 0, 1}
+  Sources physiques / simulees
+            |
+            v
+  SRC : CPU jitter + capteurs inertiels simules
+            |
+            v
+  COND : Toeplitz Extractor -> SHAKE-256 -> Seedinit
+            |
+            v
+  DRBG : Module-LWR (nominal)
+            |
+            +--> Multiplexed Sponge (secondaire / recherche)
+            |
+            v
+  STATE : machine a etats + sealing/restauration + anti-rollback simule
+            |
+            v
+  SDK Python local : software.api / RNGService
 ```
 
-Ce profil correspond au code par défaut du dépôt.
+## 4. Interfaces / Composants
 
-## 7. Place de la NTT
+### 4.1 SRC
 
-La `NTT` n'appartient pas à la baseline exécutable actuelle.
+La couche `SRC` est implemente dans `software/entropy/` et repose
+principalement sur :
 
-Elle est reclassée comme :
+- `CPUJitterSource`
+- `SensorEntropySource`
+- `HealthEstimator`
+- `EntropyPool`
 
-- optimisation future ;
-- piste d'accélération logicielle ;
-- piste d'accélération matérielle ;
-- travail ultérieur pour une cible plus proche d'un déploiement mobile réel.
+Le role de `SRC` est de fournir une matiere premiere entropique. Cette couche
+ne garantit pas a elle seule une sortie uniforme.
 
-### Conséquence documentaire
+### 4.2 COND
 
-Les anciens schémas mentionnant `RLWE + NTT` doivent être relus comme des cibles futures et non comme la description fidèle du prototype actuellement codé.
-
-## 8. Nature de l'API
-
-La forme officielle de l'API du prototype est une librairie / SDK Python local.
-
-Le point d'intégration officiel observé dans le dépôt est constitué par les appels suivants :
-
-- `instantiate(...)`
-- `generate(...)`
-- `reseed(...)`
-- `export_state()`
-- `zeroize()`
-
-L'information de santé et de statut est actuellement portée par `export_state()` et par l'état logique du gestionnaire.
-
-Un service HTTP peut être ajouté plus tard comme démonstrateur, mais il ne constitue pas l'API officielle de la baseline.
-
-## 9. Résumé d'architecture
+Le conditionneur officiel est :
 
 ```text
-Sources physiques/simulées
-        |
-        v
- SRC : CPU jitter + capteurs
-        |
-        v
- COND : Toeplitz + SHAKE-256
-        |
-        v
- DRBG : Module-LWR (nominal)
-        |        \
-        |         \--> Multiplexed Sponge (secondaire / recherche)
-        v
- STATE : état, sealing, restore, anti-rollback simulé
+Raw_Data -> Toeplitz -> SHAKE-256 -> Seedinit
 ```
 
-## 10. Formulation à reprendre dans le manuscrit
+Les composants associes sont dans `software/conditioner/` :
 
-> La baseline officielle du prototype mémoire repose sur une architecture en quatre couches `SRC -> COND -> DRBG -> STATE`. Le conditionneur officiel est `Toeplitz + SHAKE-256`, le moteur nominal du DRBG est `Module-LWR`, et le `Multiplexed Sponge` est maintenu comme moteur secondaire de recherche. La NTT n'est pas intégrée à la baseline exécutable actuelle ; elle est classée comme optimisation future.
+- `ToeplitzExtractor`
+- `ShakeConditioner`
+- `EntropyMixer`
+
+Le conditionnement officiel du depot est donc `Toeplitz + SHAKE-256`. Il ne
+faut pas decrire `LWR` comme un conditionneur.
+
+### 4.3 DRBG
+
+La couche `DRBG` est implemente dans `software/pqc_drbg/`.
+
+Le moteur nominal est :
+
+- `Module-LWR`, via `ModuleLWRCore`
+
+Le moteur secondaire est :
+
+- `Multiplexed Sponge`, via `MultiplexedSpongeAdapter`
+
+Le gestionnaire composite `PQCCompositeDRBG` orchestre :
+
+- la politique de selection des moteurs ;
+- la machine a etats ;
+- les transitions `READY`, `NEED_RESEED`, `FAIL_STOP`, `ZEROIZED`.
+
+### 4.4 STATE
+
+La couche `STATE` est implantee dans `software/state_manager/`.
+
+Elle fournit :
+
+- un `StateManager` ;
+- un `SimulatedTEE` ;
+- un mecanisme de sealing et de restauration ;
+- une detection d'integrite et de rollback.
+
+Cette couche est une simulation logicielle controlee. Elle ne correspond pas a
+un TEE mobile reel deja deploye.
+
+### 4.5 SDK Python
+
+Le SDK Python local est expose par `software/api/`.
+
+Il fournit :
+
+- une surface publique simplifiee via `rng_init`, `rng_get_bytes`,
+  `rng_generate`, `rng_reseed`, `rng_restore_state`, `rng_zeroize`,
+  `rng_health` ;
+- un service canonique `RNGService` qui orchestre `SRC -> COND -> DRBG -> STATE`.
+
+Il ne s'agit pas d'un service HTTP natif ni d'une API mobile finale.
+
+### 4.6 Demonstration
+
+La demonstration de reference se trouve dans `demo/run_full_project_demo.py`.
+
+Elle montre :
+
+- le chemin complet `SRC -> COND -> DRBG -> STATE` ;
+- le moteur nominal `Module-LWR` ;
+- le moteur secondaire `Multiplexed Sponge` ;
+- la machine a etats ;
+- le sealing et la restauration d'etat.
+
+## 5. Hypotheses
+
+- La source d'entropie reste une source logicielle ou simulee, pas une
+  qualification materielle complete.
+- Le conditionnement `Toeplitz + SHAKE-256` est l'unique formulation correcte
+  de la baseline actuelle.
+- `Module-LWR` est le moteur nominal de la baseline executable.
+- `Multiplexed Sponge` est conserve pour la recherche et la comparaison.
+- La couche `STATE` simule un environnement protege, sans pretendre a un TEE
+  materiel deja deploye.
+
+## 6. Limites
+
+- La baseline actuelle est un prototype academique, pas un produit mobile fini.
+- L'API principale reste un SDK Python local.
+- La persistance securisee est simulee.
+- Les performances mesurees localement ne sont pas des mesures smartphone
+  natives.
+- Les validations statistiques et benchmarks sont experimentaux et ne valent pas
+  certification normative.
+
+## 7. Statut actuel
+
+### 7.1 Ce qui est implemente et executable
+
+- `SRC` avec collecte, tests de sante et pool d'entropie
+- `COND` avec `Toeplitz + SHAKE-256`
+- `DRBG` nominal `Module-LWR`
+- moteur secondaire `Multiplexed Sponge`
+- `STATE` avec machine a etats et TEE simule
+- SDK Python local et demonstration complete
+- validation statistique et benchmarks logiciels locaux
+
+### 7.2 Ce qui est experimental
+
+- usage du `Multiplexed Sponge` comme moteur secondaire
+- comparaison statistique et benchmark LWR vs Sponge
+- benchmark energie et latence materielle uniquement via cadres ou imports
+
+### 7.3 Ce qui est futur
+
+- acceleration NTT
+- portage materiel plus complet
+- execution sur vraie cible ARM/mobile
+- instrumentation energie reelle
+
+## 8. Evolutions futures
+
+- Integrer des optimisations de performance, y compris la NTT, sans changer la
+  separation `SRC -> COND -> DRBG -> STATE`.
+- Porter le prototype vers un environnement mobile ou embarque plus proche d'un
+  deploiement reel.
+- Durcir la couche `STATE` avec une cible de securisation materielle plus fidele.
+
+## 9. Place exacte de la NTT
+
+La `NTT` n'est pas un composant actif de la baseline executable actuelle.
+
+Dans ce depot, elle doit etre comprise comme :
+
+- une optimisation future ;
+- un levier possible d'acceleration logicielle ou materielle ;
+- un sujet de travaux ulterieurs.
+
+Elle ne doit pas etre documentee comme deja integree au moteur nominal courant.
