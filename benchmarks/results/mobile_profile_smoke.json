@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "profile_kind": "mobile_transition_reference",
+    "environment": {
+      "machine": "AMD64",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "system": "Windows",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "is_arm": false,
+      "bridge_type": "python_transition_contract",
+      "native_wrapper_present": false
+    },
+    "not_measured_on_arm": true,
+    "warnings": [
+      "This profile measures the Python reference path, not a native mobile wrapper."
+    ]
+  },
+  "operations": {
+    "instantiate": {
+      "count": 5,
+      "mean_ns": 328760340.0,
+      "min_ns": 135400,
+      "max_ns": 1643020100,
+      "mean_peak_bytes": 24834.0
+    },
+    "generate": {
+      "32": {
+        "count": 5,
+        "mean_ns": 2095147500.0,
+        "min_ns": 1935292000,
+        "max_ns": 2217496300,
+        "mean_peak_bytes": 173302.6
+      },
+      "256": {
+        "count": 5,
+        "mean_ns": 3272791980.0,
+        "min_ns": 3142223600,
+        "max_ns": 3369581600,
+        "mean_peak_bytes": 173034.4
+      },
+      "1024": {
+        "count": 5,
+        "mean_ns": 7892860520.0,
+        "min_ns": 7775808900,
+        "max_ns": 8024758700,
+        "mean_peak_bytes": 173555.6
+      }
+    },
+    "reseed": {
+      "count": 5,
+      "mean_ns": 3411317560.0,
+      "min_ns": 3368802800,
+      "max_ns": 3493193200,
+      "mean_peak_bytes": 104495.8
+    },
+    "zeroize": {
+      "count": 5,
+      "mean_ns": 1379411980.0,
+      "min_ns": 290600,
+      "max_ns": 1779127200,
+      "mean_peak_bytes": 68995.8
+    }
+  }
+}
