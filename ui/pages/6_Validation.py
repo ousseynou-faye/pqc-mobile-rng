@@ -34,7 +34,7 @@ step_grid(
 action_strip(
     [
         ("Smoke tests", "Lance une verification rapide de bout en bout sur le prototype local."),
-        ("Campagne comparative", "Ajoute une comparaison courte LWR / Sponge a but demonstratif."),
+        ("Campagne statistique", "Ajoute une campagne courte sur le moteur Multiplexed Sponge de la baseline."),
     ]
 )
 

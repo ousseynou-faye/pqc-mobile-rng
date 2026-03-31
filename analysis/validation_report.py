@@ -10,7 +10,7 @@ from typing import Any
 DISCLAIMER_IMPLEMENTED = [
     "Validation experimentale de la source d'entropie, du conditionnement et des sorties DRBG.",
     "Health checks simples et estimation prudente de min-entropie par Most Common Value.",
-    "Campagnes statistiques comparatives sur Module-LWR et Multiplexed Sponge.",
+    "Campagnes statistiques sur le DRBG Multiplexed Sponge de la baseline.",
 ]
 
 DISCLAIMER_INSPIRED = [
@@ -22,7 +22,7 @@ DISCLAIMER_INSPIRED = [
 DISCLAIMER_NOT_FORMAL = [
     "Ce rapport ne revendique aucune conformite formelle a SP 800-90A, SP 800-90B, SP 800-22, FIPS ou CMVP.",
     "Les tests statistiques presentes ici ne constituent pas une preuve cryptographique.",
-    "Module-LWR et Multiplexed Sponge ne sont pas presentes comme des DRBG NIST approuves.",
+    "Le DRBG Multiplexed Sponge n'est pas presente comme un DRBG NIST approuve.",
 ]
 
 

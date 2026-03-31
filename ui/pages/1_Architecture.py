@@ -51,7 +51,7 @@ step_grid(
     [
         ("SRC", "La couche collecte des symboles bruts depuis CPU jitter et une source capteur simulee."),
         ("COND", "La couche conditionne ce materiau par Toeplitz puis SHAKE-256 avant toute instanciation."),
-        ("DRBG", "Le moteur nominal est Multiplexed Sponge. Module-LWR reste disponible pour la recherche et le fallback controle."),
+        ("DRBG", "Le moteur unique est Multiplexed Sponge et il opere sur les sequences S_n, T_n et phi(l,n)."),
         ("STATE", "La couche gere les transitions logiques, le checkpoint, la restauration et l'effacement."),
     ]
 )
@@ -59,7 +59,7 @@ step_grid(
 left, right = st.columns([1.2, 1.0], gap="large")
 with left:
     text_panel("Ce qui est implemente", "SRC collecte l'entropie locale, COND applique Toeplitz + SHAKE-256, DRBG utilise Multiplexed Sponge comme chemin nominal, et STATE gere la machine a etats avec persistence simulee.")
-    text_panel("Ce qui est experimental", "Module-LWR reste un moteur secondaire de recherche et de fallback controle. La trajectoire mobile ajoute une frontiere FFI de transition et un protocole de profilage honnete.")
+    text_panel("Ce qui est experimental", "La trajectoire mobile ajoute une frontiere FFI de transition et un protocole de profilage honnete, sans integration Android ou TEE materiel reelle.")
     text_panel("Ce qui reste futur", "La NTT active, les drivers Android/Linux reels, le wrapper JNI/NDK et la validation sur cible mobile restent hors de la baseline executable actuelle.")
 with right:
     note_panel("Important", "Cette interface de demonstration ne doit pas etre lue comme une preuve d'integration mobile reelle.", tone="warning")

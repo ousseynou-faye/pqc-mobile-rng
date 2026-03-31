@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
+from software.conditioner import encode_conditioner_seed_for_drbg
 from software.pqc_drbg.drbg_engine import PQCCompositeDRBG
 from software.pqc_drbg.policy import DRBGPolicy, EngineSelectionMode
 from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter
@@ -26,13 +28,20 @@ def dummy_sponge_factory(seed_digest: bytes) -> DummySponge:
     return DummySponge(seed_digest)
 
 
+def build_temp_root() -> Path:
+    root = Path(__file__).resolve().parents[1] / "tests_runtime" / "state_manager"
+    path = root / f"case_{uuid4().hex[:8]}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def build_manager(tmp_path: Path) -> StateManager:
     tee = SimulatedTEE(root_dir=tmp_path, device_id="device-test", namespace="rng-test")
     return StateManager(tee=tee, blob_id="drbg_state")
 
 
-def test_seal_unseal_round_trip(tmp_path: Path):
-    manager = build_manager(tmp_path)
+def test_seal_unseal_round_trip():
+    manager = build_manager(build_temp_root())
     payload = {"counter": 7, "active_engine": "multiplexed_sponge"}
 
     manager.seal_payload(payload, payload_metadata={"purpose": "round_trip"})
@@ -41,8 +50,8 @@ def test_seal_unseal_round_trip(tmp_path: Path):
     assert restored == payload
 
 
-def test_integrity_tampering_is_detected(tmp_path: Path):
-    manager = build_manager(tmp_path)
+def test_integrity_tampering_is_detected():
+    manager = build_manager(build_temp_root())
     payload = {"counter": 8, "active_engine": "multiplexed_sponge"}
 
     blob = manager.seal_payload(payload, payload_metadata={"purpose": "tamper"})
@@ -57,8 +66,8 @@ def test_integrity_tampering_is_detected(tmp_path: Path):
         manager.unseal_payload(payload_metadata={"purpose": "tamper"})
 
 
-def test_rollback_is_detected(tmp_path: Path):
-    manager = build_manager(tmp_path)
+def test_rollback_is_detected():
+    manager = build_manager(build_temp_root())
 
     old_blob = manager.seal_payload({"epoch": 1}, payload_metadata={"purpose": "rollback"})
     manager.seal_payload({"epoch": 2}, payload_metadata={"purpose": "rollback"})
@@ -67,16 +76,16 @@ def test_rollback_is_detected(tmp_path: Path):
         manager.tee.unseal(old_blob, expected_aad=manager._make_aad({"purpose": "rollback"}))
 
 
-def test_checkpoint_and_restore_drbg(tmp_path: Path):
+def test_checkpoint_and_restore_drbg():
     sponge = MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory)
     drbg = PQCCompositeDRBG(
         sponge_engine=sponge,
         policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
-    drbg.instantiate(b"seed-state-test")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-state-test"))
     _ = drbg.generate(16)
 
-    manager = build_manager(tmp_path)
+    manager = build_manager(build_temp_root())
     manager.checkpoint_drbg(drbg, payload_metadata={"purpose": "checkpoint"})
 
     restored = PQCCompositeDRBG(

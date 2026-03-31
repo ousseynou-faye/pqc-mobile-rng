@@ -8,9 +8,11 @@ import pytest
 from software.api import (
     RNGInvalidLengthError,
     RNGNotInitializedError,
+    format_output_bytes,
     get_rng_service,
     rng_generate,
     rng_get_bytes,
+    rng_get_output_formats,
     rng_health,
     rng_init,
     rng_reseed,
@@ -57,6 +59,29 @@ def test_rng_generate_is_public_alias():
 
     assert isinstance(data, bytes)
     assert len(data) == 24
+
+
+def test_rng_get_output_formats_returns_decimal_hex_and_binary():
+    configure_public_service("output_formats")
+    rng_init(force_reinit=True)
+
+    bundle = rng_get_output_formats(16)
+
+    assert bundle["length_bytes"] == 16
+    assert isinstance(bundle["decimal"], int)
+    assert len(bundle["hex"]) == 32
+    assert len(bundle["binary"]) == 128
+    assert bundle["raw_bytes"] == bytes(bundle["raw_byte_values"])
+
+
+def test_format_output_bytes_matches_public_wrapper_output_shape():
+    sample = b"\x01\x02\x03\x04"
+
+    bundle = format_output_bytes(sample)
+
+    assert bundle["decimal"] == int.from_bytes(sample, "big")
+    assert bundle["hex"] == "01020304"
+    assert bundle["binary_grouped"] == "00000001 00000010 00000011 00000100"
 
 
 def test_rng_health_is_sanitized():

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 import sys
 from uuid import uuid4
@@ -13,6 +15,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from software.api import get_rng_service
 from software.api.rng_service import RNGServiceConfig, StateConfig
 from software.pqc_drbg import DRBGPolicy
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Force pytest and tempfile to use a project-local temp root instead of
+    # a broken Windows/OneDrive global temp directory. Use a session-unique
+    # basetemp so pytest never scans stale numbered directories.
+    temp_root = PROJECT_ROOT / "tests_runtime" / "pytest_tmp_root"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    os.environ["TMP"] = str(temp_root)
+    os.environ["TEMP"] = str(temp_root)
+    os.environ["TMPDIR"] = str(temp_root)
+    tempfile.tempdir = str(temp_root)
+    config.option.basetemp = str(temp_root / f"basetemp_{uuid4().hex}")
 
 
 def build_test_config(

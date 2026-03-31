@@ -20,7 +20,7 @@ from software.api import (
     rng_zeroize,
 )
 from software.api.rng_service import RNGServiceConfig, StateConfig
-from software.conditioner import EntropyMixer
+from software.conditioner import EntropyMixer, encode_conditioner_seed_for_drbg
 from software.entropy import CPUJitterSource, EntropyPool, SensorEntropySource
 from ui.utils.formatters import byte_histogram, decimal_rows, summarize_bytes
 from ui.utils.security import preview_bits, preview_bytes, redact_state_payload, truncate_text
@@ -50,7 +50,7 @@ class ProjectFacade:
         return [
             {"name": "SRC", "status": "implemented", "title": "Collecte d'entropie", "body": "CPU jitter et source capteur simulee alimentent un pool prudent d'entropie brute."},
             {"name": "COND", "status": "implemented", "title": "Conditionnement", "body": "Le chemin officiel applique Toeplitz puis SHAKE-256 avant toute instanciation du DRBG."},
-            {"name": "DRBG", "status": "implemented", "title": "Generation post-quantique", "body": "Multiplexed Sponge est nominal. Module-LWR reste un moteur secondaire experimental et de fallback controle."},
+            {"name": "DRBG", "status": "implemented", "title": "Generation post-quantique", "body": "Multiplexed Sponge est l'unique moteur DRBG de la baseline. Les sequences S_n, T_n et phi(l,n) structurent l'expansion deterministe."},
             {"name": "STATE", "status": "implemented", "title": "Etat et persistence", "body": "Machine a etats explicite, scellement simule et restauration administree du prototype."},
             {"name": "Mobile", "status": "experimental", "title": "Trajectoire mobile", "body": "Le depot expose une frontiere FFI de transition et un protocole de profilage, sans integration Android reelle."},
             {"name": "NTT", "status": "future", "title": "Optimisation future", "body": "La NTT est documentee comme piste d'optimisation, pas comme composant actif de la baseline executable."},
@@ -74,7 +74,7 @@ class ProjectFacade:
         return {
             "project_title": "Deploiement d'un RNG Mobile Post-Quantique",
             "pipeline": "SRC -> COND -> DRBG -> STATE",
-            "engines": ["multiplexed_sponge", "module_lwr"],
+            "engines": ["multiplexed_sponge"],
             "conditioner": "Toeplitz + SHAKE-256",
             "prototype_status": "Prototype academique local / SDK Python",
             "sdk_status": status,
@@ -152,6 +152,29 @@ class ProjectFacade:
         drbg.instantiate(seed_material, personalization=personalization)
         return drbg
 
+    def build_lab_seed_material(
+        self,
+        raw_seed: bytes,
+        *,
+        personalization: bytes = b"",
+        extra_context: bytes = b"",
+    ) -> dict[str, Any]:
+        if not raw_seed:
+            raise ValueError("raw_seed ne doit pas etre vide.")
+
+        mixer = EntropyMixer(toeplitz_output_bits=min(256, max(1, len(raw_seed) * 8 - 1)))
+        result = mixer.condition_raw_data(
+            raw_data=raw_seed,
+            metadata={"source": "ui_lab_seed"},
+            personalization=personalization,
+            extra_context=extra_context,
+        )
+        return {
+            "result": result,
+            "seed_material": encode_conditioner_seed_for_drbg(result.seedinit),
+            "seed_preview_hex": preview_bytes(result.seedinit, head=6, tail=6),
+        }
+
     def generate_with_engine(self, drbg: Any, *, length: int, additional_input: bytes = b"") -> dict[str, Any]:
         started = time.perf_counter_ns()
         data = drbg.generate(length, additional_input=additional_input)
@@ -170,7 +193,7 @@ class ProjectFacade:
 
     def compare_engines(self, *, length: int, seed_material: bytes, additional_input: bytes = b"") -> dict[str, Any]:
         comparison: dict[str, Any] = {}
-        for engine_name in ("multiplexed_sponge", "module_lwr"):
+        for engine_name in ("multiplexed_sponge",):
             drbg = self.instantiate_lab_engine(engine_name, seed_material=seed_material)
             comparison[engine_name] = self.generate_with_engine(drbg, length=length, additional_input=additional_input)
         return comparison

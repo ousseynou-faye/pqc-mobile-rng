@@ -12,6 +12,7 @@ if PROJECT_ROOT_STR not in sys.path:
     sys.path.insert(0, PROJECT_ROOT_STR)
 
 from ui.components.common import action_strip, hero, metric_strip, note_panel, render_logs, section_header, step_grid, text_panel
+from software.conditioner import encode_conditioner_seed_for_drbg
 from ui.services.project_facade import ProjectFacade
 from ui.theme import apply_theme
 from ui.utils.security import preview_bytes
@@ -23,15 +24,14 @@ apply_theme()
 init_session_state()
 
 facade = ProjectFacade()
-hero("Laboratoire DRBG", "Instanciation, generation et comparaison pedagogique de Multiplexed Sponge et Module-LWR.", eyebrow="Etape 3")
+hero("Laboratoire DRBG", "Instanciation, generation et observation pedagogique du DRBG Multiplexed Sponge.", eyebrow="Etape 3")
 
 cond = st.session_state.get("last_cond")
-default_seed = cond["result"].seedinit if cond else b"ui-drbg-seed"
 ui_mode = st.session_state.get("ui_mode", "pedagogique")
 
 with st.sidebar:
     st.subheader("Commandes DRBG")
-    engine = st.selectbox("Moteur", ["multiplexed_sponge", "module_lwr"])
+    engine = st.selectbox("Moteur", ["multiplexed_sponge"])
     length = st.slider("Taille de sortie", 16, 512, 64, 16)
     decimal_limit = st.slider("Apercu decimal", 8, 128, 32, 8)
     personalization = st.text_input("Personalization", value="ui-drbg")
@@ -40,23 +40,40 @@ with st.sidebar:
 
 step_grid(
     [
-        ("Instancier", "Instanciez un moteur avec une seed issue du conditionneur ou une seed locale de demonstration."),
+        ("Instancier", "Instanciez un moteur avec un seed material issu du conditionneur."),
         ("Generer", "Produisez un bloc d'octets et visualisez-le en hex, binaire et decimal."),
-        ("Comparer", "Mesurez cote a cote Multiplexed Sponge et Module-LWR sur la meme longueur de sortie."),
+        ("Observer", "Inspectez l'etat non sensible et la sortie du Multiplexed Sponge sur une meme longueur."),
     ]
 )
 action_strip(
     [
         ("Action principale", "Instanciez puis generez une sortie RNG lisible en hex, binaire et decimal."),
-        ("Action secondaire", "Comparez Sponge et LWR sur la meme longueur pour la demonstration."),
+        ("Action secondaire", "Relancez une mesure locale du moteur officiel pour comparer deux appels consecutifs."),
         ("Action canonique", "Initialisez le SDK pour rappeler le chemin nominal du projet."),
     ]
 )
 
+if cond:
+    lab_seed_bundle = {
+        "source": "conditionneur",
+        "result": cond["result"],
+        "seed_material": encode_conditioner_seed_for_drbg(cond["result"].seedinit),
+        "seed_preview_hex": preview_bytes(cond["result"].seedinit, head=6, tail=6),
+    }
+else:
+    lab_seed_bundle = facade.build_lab_seed_material(
+        b"ui-drbg-seed",
+        personalization=personalization.encode("utf-8"),
+        extra_context=b"ui-lab-fallback-conditioned",
+    )
+    lab_seed_bundle["source"] = "conditionnement local"
+
+default_seed_material = lab_seed_bundle["seed_material"]
+
 if st.button("Instancier le DRBG", type="primary"):
     st.session_state["drbg_instances"][engine] = facade.instantiate_lab_engine(
         engine,
-        seed_material=default_seed,
+        seed_material=default_seed_material,
         personalization=personalization.encode("utf-8"),
     )
     push_log("DRBG", f"Instance {engine} initialisee dans le laboratoire.")
@@ -71,9 +88,9 @@ if actions[0].button("Generer la sortie RNG"):
         st.session_state["last_drbg_output"] = facade.generate_with_engine(instance, length=length, additional_input=additional_input.encode("utf-8"))
         push_log("DRBG", f"Generation executee avec {engine} sur {length} octets.")
 
-if actions[1].button("Comparer LWR / Sponge"):
-    st.session_state["last_drbg_compare"] = facade.compare_engines(length=length, seed_material=default_seed, additional_input=additional_input.encode("utf-8"))
-    push_log("DRBG", f"Comparaison LWR vs Sponge sur {length} octets.")
+if actions[1].button("Relancer une mesure locale"):
+    st.session_state["last_drbg_compare"] = facade.compare_engines(length=length, seed_material=default_seed_material, additional_input=additional_input.encode("utf-8"))
+    push_log("DRBG", f"Mesure locale replicatee sur {length} octets.")
 
 if actions[2].button("Initialiser le SDK canonique"):
     st.session_state["last_sdk_status"] = facade.instantiate_sdk(personalization=personalization.encode("utf-8"))
@@ -126,8 +143,9 @@ with left:
         st.info("Aucune generation n'a encore ete lancee.")
 
 with right:
-    section_header("Comparaison des moteurs", "Comparer les deux moteurs sans changer la baseline nominale du projet.", kicker="Analyse")
-    text_panel("Lecture pedagogique", "Multiplexed Sponge est le moteur nominal retenu par la baseline. Module-LWR est conserve comme moteur secondaire de recherche, de comparaison et de fallback controle.")
+    section_header("Mesure locale", "Observer des generations repetees du moteur officiel sans changer la baseline.", kicker="Analyse")
+    text_panel("Lecture pedagogique", f"Multiplexed Sponge est l'unique moteur DRBG de la baseline. Le laboratoire utilise un seed material derive du conditionneur ({lab_seed_bundle['source']}).")
+    st.caption(f"Seedinit actif: {lab_seed_bundle['seed_preview_hex']}")
     compare = st.session_state.get("last_drbg_compare")
     if compare:
         rows = [{"engine": name, "elapsed_ns": result["elapsed_ns"], "length": result["length"], "preview": preview_bytes(result["data"])} for name, result in compare.items()]
@@ -148,8 +166,8 @@ with right:
             ]
             st.dataframe(compare_stats, width="stretch", hide_index=True)
     else:
-        st.info("Utilisez le bouton de comparaison pour voir LWR et Sponge cote a cote.")
+        st.info("Utilisez le bouton secondaire pour relancer une mesure sur le moteur officiel.")
 
 with st.expander("Journal des actions"):
     render_logs(st.session_state["ui_logs"])
-note_panel("Limite d'interpretation", "Le moteur `module_lwr` reste un moteur secondaire de recherche et de fallback. Le chemin canonique du SDK reste nominalement `multiplexed_sponge`.", tone="warning")
+note_panel("Limite d'interpretation", "Cette page observe un prototype logiciel local. Elle n'etablit ni conformite NIST ni validation mobile materielle.", tone="warning")

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import shake_256
 
+from software.conditioner import decode_conditioner_seed_for_drbg
 from software.lfsr import RecurrenceSequence
 from software.sponge import MultiplexedSponge, derive_sponge_lfsr_seeds
 
@@ -43,9 +44,8 @@ class MultiplexedSpongeAdapter(DRBGEngine):
     """
     Encapsule Multiplexed Sponge comme moteur nominal du projet.
 
-    L'adaptateur conserve un contrat identique a celui du moteur Module-LWR
-    afin que l'orchestrateur puisse basculer de facon explicite entre moteur
-    principal et moteur secondaire.
+    L'adaptateur conserve un contrat DRBG stable pour que l'orchestrateur,
+    la couche API et la couche STATE partagent la meme frontiere logicielle.
     """
 
     sponge_factory: Callable[[bytes], object]
@@ -82,15 +82,27 @@ class MultiplexedSpongeAdapter(DRBGEngine):
             )
         return instance
 
-    def _rekey(self, seed_material: bytes, *, domain: bytes, context: bytes = b"") -> None:
-        self._seed_digest = shake_256(domain + self._seed_digest + seed_material + context).digest(64)
+    def _rekey(self, seed_material: bytes, *, domain: bytes, context: bytes = b"", require_conditioner_seed: bool = False) -> None:
+        try:
+            mix_material = (
+                decode_conditioner_seed_for_drbg(seed_material)
+                if require_conditioner_seed
+                else bytes(seed_material)
+            )
+        except (TypeError, ValueError) as exc:
+            raise DRBGError(str(exc)) from exc
+        self._seed_digest = shake_256(domain + self._seed_digest + mix_material + context).digest(64)
         self._instance = self._build_instance_from_digest(self._seed_digest)
         self._generate_counter = 0
         self._initialized = True
 
     def instantiate(self, seed_material: bytes, personalization: bytes = b"") -> None:
         self._require_non_empty_seed(seed_material)
-        self._seed_digest = shake_256(b"sponge_init:" + personalization + seed_material).digest(64)
+        try:
+            conditioner_seed = decode_conditioner_seed_for_drbg(seed_material)
+        except (TypeError, ValueError) as exc:
+            raise DRBGError(str(exc)) from exc
+        self._seed_digest = shake_256(b"sponge_init:" + personalization + conditioner_seed).digest(64)
         self._instance = self._build_instance_from_digest(self._seed_digest)
         self._generate_counter = 0
         self._initialized = True
@@ -98,7 +110,12 @@ class MultiplexedSpongeAdapter(DRBGEngine):
     def reseed(self, seed_material: bytes, additional_input: bytes = b"") -> None:
         self._require_initialized()
         self._require_non_empty_seed(seed_material)
-        self._rekey(seed_material, domain=b"sponge_reseed:", context=additional_input)
+        self._rekey(
+            seed_material,
+            domain=b"sponge_reseed:",
+            context=additional_input,
+            require_conditioner_seed=True,
+        )
 
     def generate(self, nbytes: int, additional_input: bytes = b"") -> bytes:
         self._require_initialized()
@@ -108,6 +125,7 @@ class MultiplexedSpongeAdapter(DRBGEngine):
                 additional_input,
                 domain=b"sponge_generate_mix:",
                 context=self._generate_counter.to_bytes(8, "big"),
+                require_conditioner_seed=False,
             )
         out = self._instance.squeeze_bytes(nbytes)
         self._generate_counter += 1

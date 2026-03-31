@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from software.api import get_rng_service, rng_get_bytes, rng_health, rng_init, rng_restore_state, rng_zeroize
-from software.pqc_drbg import DRBGPolicy, EngineSelectionMode
+from software.pqc_drbg import EngineSelectionMode
 
 
 def test_end_to_end_nominal_pipeline(configure_rng_service):
@@ -44,21 +44,3 @@ def test_end_to_end_baseline_keeps_official_src_cond_drbg_state_chain(configure_
     assert exported["manager_state"]["active_engine"] == "multiplexed_sponge"
     assert exported["policy"]["selection_mode"] == EngineSelectionMode.STRICT_SPONGE_ONLY.value
     assert service.last_operation == "generate_bytes"
-
-
-def test_end_to_end_research_engine_can_be_enabled_without_affecting_baseline_service(configure_rng_service):
-    policy = DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH)
-    research = configure_rng_service("e2e_research_mode", policy=policy)
-
-    assert rng_init() is True
-
-    output = rng_get_bytes(40)
-    exported = research.drbg.export_state()
-    assert len(output) == 40
-    assert exported["manager_state"]["active_engine"] == "module_lwr"
-    assert exported["manager_state"]["flags"]["degraded_research"] is True
-
-    baseline = configure_rng_service("e2e_research_mode_baseline")
-    assert rng_init() is True
-    _ = rng_get_bytes(40)
-    assert baseline.drbg.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"

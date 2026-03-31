@@ -1,4 +1,9 @@
-from software.conditioner import EntropyMixer, ToeplitzExtractor
+from software.conditioner import (
+    EntropyMixer,
+    ToeplitzExtractor,
+    decode_conditioner_seed_for_drbg,
+    encode_conditioner_seed_for_drbg,
+)
 
 
 def test_toeplitz_seed_length_formula():
@@ -60,3 +65,10 @@ def test_entropy_mixer_accepts_pool_like_object():
     assert isinstance(result.seedinit, bytes)
     assert len(result.seedinit) == 32
     assert len(result.toeplitz_output) == 16
+
+
+def test_conditioner_seed_bridge_round_trip():
+    seedinit = b"conditioned-seed-bridge"
+    encoded = encode_conditioner_seed_for_drbg(seedinit)
+
+    assert decode_conditioner_seed_for_drbg(encoded) == seedinit

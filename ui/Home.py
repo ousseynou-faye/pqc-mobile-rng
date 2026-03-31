@@ -48,7 +48,7 @@ hero(
 metric_strip([
     ("Pipeline", overview["pipeline"]),
     ("Moteur nominal", "Multiplexed Sponge"),
-    ("Moteur secondaire", "Module-LWR"),
+    ("Mode DRBG", "Sponge-only"),
     ("Conditionneur", overview["conditioner"]),
     ("Statut", overview["prototype_status"]),
 ])
@@ -88,7 +88,7 @@ step_grid(
     [
         ("Comprendre l'architecture", "Commencez par la vue d'architecture pour voir les couches implementees, experimentales et futures."),
         ("Explorer les donnees", "Collectez l'entropie, conditionnez-la, puis instanciez le DRBG pour suivre le pipeline."),
-        ("Comparer et documenter", "Terminez par la comparaison des moteurs, les smoke tests et les benchmarks locaux."),
+        ("Valider et documenter", "Terminez par les smoke tests, les benchmarks locaux et la documentation du pipeline."),
     ]
 )
 

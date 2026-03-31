@@ -1,205 +1,182 @@
-# Architecture du RNG
+# Architecture RNG
 
-## 1. Objectif / Perimetre
+## Vue d'ensemble
 
-Ce document decrit l'architecture de reference du prototype executable du projet
-`Deploiement d'un RNG Mobile Post-Quantique`.
+Le depot implemente un pipeline logiciel complet:
 
-La baseline logicielle actuelle est strictement :
+`SRC -> COND -> DRBG -> STATE`
+
+Le point d'entree canonique est `software/api/rng_service.py`. Cette classe orchestre toutes les briques reelles du projet sans introduire de logique parallele cachee.
+
+## Couches et responsabilites
+
+### 1. SRC
+
+Modules principaux:
+
+- `software/entropy/cpu_jitter.py`
+- `software/entropy/sensor_entropy.py`
+- `software/entropy/entropy_pool.py`
+- `software/entropy/health_estimator.py`
+- `software/entropy/models.py`
+
+Responsabilites:
+
+- collecter des symboles bruts
+- estimer une entropie conservative
+- appliquer des checks sanitaires
+- constituer un `EntropyPool`
+
+Sortie notable:
+
+- `raw_data = pool.export_raw_bytes()`
+
+### 2. COND
+
+Modules principaux:
+
+- `software/conditioner/entropy_mixer.py`
+- `software/conditioner/toeplitz_extractor.py`
+- `software/conditioner/shake_conditioner.py`
+- `software/conditioner/drbg_seed_material.py`
+
+Responsabilites:
+
+- fabriquer un contexte stable de conditionnement
+- deriver une graine publique pour Toeplitz
+- extraire une sortie Toeplitz
+- calculer `seedinit` via SHAKE-256
+- encoder explicitement le passage vers le DRBG
+
+Sortie notable:
+
+- `ConditioningResult.seedinit`
+
+### 3. DRBG
+
+Modules principaux:
+
+- `software/pqc_drbg/drbg_engine.py`
+- `software/pqc_drbg/sponge_core.py`
+- `software/sponge/seed_derivation.py`
+- `software/sponge/multiplexed_sponge.py`
+- `software/sponge/multiplexed_sequence.py`
+- `software/sponge/phi_function.py`
+- `software/sponge/sponge_state.py`
+- `software/sponge/sponge_absorb.py`
+- `software/sponge/sponge_squeeze.py`
+- `software/lfsr/recurrence_sequences.py`
+- `software/lfsr/lfsr_core.py`
+
+Responsabilites:
+
+- valider la machine a etats DRBG
+- transformer `seedinit` en `seed_digest`
+- deriver les graines LFSR `seed_s` et `seed_t`
+- produire `S_n`, `T_n` et `phi(l,n)`
+- generer la sequence multiplexee
+- absorber puis compresser via le sponge
+- emettre la sortie finale en octets
+
+Point exact de production de la sortie:
+
+- `RNGService.generate_bytes()`
+- `PQCCompositeDRBG.generate()`
+- `MultiplexedSpongeAdapter.generate()`
+- `instance.squeeze_bytes(nbytes)`
+
+### 4. STATE
+
+Modules principaux:
+
+- `software/state_manager/state_manager.py`
+- `software/state_manager/tee_simulator.py`
+- `software/state_manager/models.py`
+- `software/pqc_drbg/state.py`
+
+Responsabilites:
+
+- gerer les etats `uninitialized`, `ready`, `need_reseed`, `fail_stop`, `zeroized`
+- exporter un etat scellable
+- restaurer l'etat prive du moteur sponge
+- simuler la frontiere TEE
+
+## Flux de donnees
+
+1. `CPUJitterSource` et `SensorEntropySource` produisent des blocs bruts.
+2. `EntropyPool` filtre et agrege les chunks acceptes.
+3. `EntropyMixer` transforme les octets bruts en `toeplitz_output`, puis en `seedinit`.
+4. `encode_conditioner_seed_for_drbg()` marque explicitement la provenance conditionnee.
+5. `MultiplexedSpongeAdapter.instantiate()` derive un `seed_digest`.
+6. `build_reference_sponge()` derive `seed_s` et `seed_t`, initialise le sponge, absorbe un materiau initial.
+7. `generate()` appelle `squeeze_bytes()` et retourne la sortie finale.
+8. `StateManager` peut sceller puis restaurer l'etat complet.
+
+## Flux de la graine
 
 ```text
-SRC -> COND -> DRBG -> STATE
+raw_data
+  -> toeplitz_output
+  -> seedinit
+  -> encode_conditioner_seed_for_drbg(seedinit)
+  -> seed_digest = SHAKE-256("sponge_init:" || personalization || seedinit)
+  -> derive_sponge_lfsr_seeds(seed_digest)
+  -> seed_s / seed_t
 ```
 
-Cette architecture est celle qui doit etre utilisee dans le memoire, la
-soutenance et la maintenance du depot.
+## Flux de l'etat interne
 
-## 2. Vue d'ensemble
+Etat DRBG manager:
 
-Le projet implemente un prototype academique de RNG structure en couches :
+- gere par `software/pqc_drbg/state.py`
+- compte les requetes et impose le reseed
+- distingue la sante logique du moteur et l'etat de cycle de vie
 
-- `SRC` collecte une entropie brute issue de sources logicielles ou simulees.
-- `COND` transforme cette entropie en une seed d'initialisation exploitable.
-- `DRBG` produit la sortie pseudo-aleatoire a partir de cette seed.
-- `STATE` protege la persistance, la restauration et la logique de cycle de vie.
+Etat prive moteur:
 
-Le point d'integration principal pour l'usage applicatif est le SDK Python local
-dans `software/api/`.
+- `seed_digest`
+- `generate_counter`
+- `sponge_state`
+- etats courants des deux sequences LFSR
 
-## 3. Schema global
+## Interfaces publiques
 
-```text
-  Sources physiques / simulees
-            |
-            v
-  SRC : CPU jitter + capteurs inertiels simules
-            |
-            v
-  COND : Toeplitz Extractor -> SHAKE-256 -> Seedinit
-            |
-            v
-  DRBG : Multiplexed Sponge (nominal)
-            |
-            +--> Module-LWR (secondaire / recherche)
-            |
-            v
-  STATE : machine a etats + sealing/restauration + anti-rollback simule
-            |
-            v
-  SDK Python local : software.api / RNGService
-```
+### Service canonique
 
-## 4. Interfaces / Composants
+- `build_entropy_seed()`
+- `instantiate_rng()`
+- `generate_bytes()`
+- `generate_output_bundle()`
+- `reseed_rng()`
+- `checkpoint_state()`
+- `restore_state()`
+- `zeroize()`
+- `sdk_status()`
 
-### 4.1 SRC
+### API publique
 
-La couche `SRC` est implemente dans `software/entropy/` et repose
-principalement sur :
+Wrappers dans `software/api/`:
 
-- `CPUJitterSource`
-- `SensorEntropySource`
-- `HealthEstimator`
-- `EntropyPool`
+- `rng_init()`
+- `rng_get_bytes()`
+- `rng_generate()`
+- `rng_get_output_formats()`
+- `rng_reseed()`
+- `rng_restore_state()`
+- `rng_zeroize()`
+- `rng_health()`
 
-Le role de `SRC` est de fournir une matiere premiere entropique. Cette couche
-ne garantit pas a elle seule une sortie uniforme.
+## Observabilite disponible
 
-### 4.2 COND
+Avant cette passe, l'observabilite etait surtout presente cote UI et surtout par octet. La passe actuelle ajoute:
 
-Le conditionneur officiel est :
+- conversion canonique bytes -> hex
+- conversion canonique bytes -> binaire
+- conversion canonique bytes -> decimal
+- demonstrations par couche
+- traces simplifiees d'etat sponge
 
-```text
-Raw_Data -> Toeplitz -> SHAKE-256 -> Seedinit
-```
+## Limites
 
-Les composants associes sont dans `software/conditioner/` :
-
-- `ToeplitzExtractor`
-- `ShakeConditioner`
-- `EntropyMixer`
-
-Le conditionnement officiel du depot est donc `Toeplitz + SHAKE-256`. Il ne
-faut pas decrire `LWR` comme un conditionneur.
-
-### 4.3 DRBG
-
-La couche `DRBG` est implemente dans `software/pqc_drbg/`.
-
-Le moteur nominal est :
-
-- `Multiplexed Sponge`, via `MultiplexedSpongeAdapter`
-
-Le moteur secondaire est :
-
-- `Module-LWR`, via `ModuleLWRCore`
-
-Le gestionnaire composite `PQCCompositeDRBG` orchestre :
-
-- la politique de selection des moteurs ;
-- la machine a etats ;
-- les transitions `READY`, `NEED_RESEED`, `FAIL_STOP`, `ZEROIZED`.
-
-### 4.4 STATE
-
-La couche `STATE` est implantee dans `software/state_manager/`.
-
-Elle fournit :
-
-- un `StateManager` ;
-- un `SimulatedTEE` ;
-- un mecanisme de sealing et de restauration ;
-- une detection d'integrite et de rollback.
-
-Cette couche est une simulation logicielle controlee. Elle ne correspond pas a
-un TEE mobile reel deja deploye.
-
-### 4.5 SDK Python
-
-Le SDK Python local est expose par `software/api/`.
-
-Il fournit :
-
-- une surface publique simplifiee via `rng_init`, `rng_get_bytes`,
-  `rng_generate`, `rng_reseed`, `rng_restore_state`, `rng_zeroize`,
-  `rng_health` ;
-- un service canonique `RNGService` qui orchestre `SRC -> COND -> DRBG -> STATE`.
-
-Il ne s'agit pas d'un service HTTP natif ni d'une API mobile finale.
-
-### 4.6 Demonstration
-
-La demonstration de reference se trouve dans `demo/run_full_project_demo.py`.
-
-Elle montre :
-
-- le chemin complet `SRC -> COND -> DRBG -> STATE` ;
-- le moteur nominal `Multiplexed Sponge` ;
-- le moteur secondaire `Module-LWR` ;
-- la machine a etats ;
-- le sealing et la restauration d'etat.
-
-## 5. Hypotheses
-
-- La source d'entropie reste une source logicielle ou simulee, pas une
-  qualification materielle complete.
-- Le conditionnement `Toeplitz + SHAKE-256` est l'unique formulation correcte
-  de la baseline actuelle.
-- `Multiplexed Sponge` est le moteur nominal de la baseline executable.
-- `Module-LWR` est conserve pour la recherche, la comparaison et le fallback controle.
-- La couche `STATE` simule un environnement protege, sans pretendre a un TEE
-  materiel deja deploye.
-
-## 6. Limites
-
-- La baseline actuelle est un prototype academique, pas un produit mobile fini.
-- L'API principale reste un SDK Python local.
-- La persistance securisee est simulee.
-- Les performances mesurees localement ne sont pas des mesures smartphone
-  natives.
-- Les validations statistiques et benchmarks sont experimentaux et ne valent pas
-  certification normative.
-
-## 7. Statut actuel
-
-### 7.1 Ce qui est implemente et executable
-
-- `SRC` avec collecte, tests de sante et pool d'entropie
-- `COND` avec `Toeplitz + SHAKE-256`
-- `DRBG` nominal `Multiplexed Sponge`
-- moteur secondaire `Module-LWR`
-- `STATE` avec machine a etats et TEE simule
-- SDK Python local et demonstration complete
-- validation statistique et benchmarks logiciels locaux
-
-### 7.2 Ce qui est experimental
-
-- usage du `Multiplexed Sponge` comme moteur secondaire
-- comparaison statistique et benchmark LWR vs Sponge
-- benchmark energie et latence materielle uniquement via cadres ou imports
-
-### 7.3 Ce qui est futur
-
-- acceleration NTT
-- portage materiel plus complet
-- execution sur vraie cible ARM/mobile
-- instrumentation energie reelle
-
-## 8. Evolutions futures
-
-- Integrer des optimisations de performance, y compris la NTT, sans changer la
-  separation `SRC -> COND -> DRBG -> STATE`.
-- Porter le prototype vers un environnement mobile ou embarque plus proche d'un
-  deploiement reel.
-- Durcir la couche `STATE` avec une cible de securisation materielle plus fidele.
-
-## 9. Place exacte de la NTT
-
-La `NTT` n'est pas un composant actif de la baseline executable actuelle.
-
-Dans ce depot, elle doit etre comprise comme :
-
-- une optimisation future ;
-- un levier possible d'acceleration logicielle ou materielle ;
-- un sujet de travaux ulterieurs.
-
-Elle ne doit pas etre documentee comme deja integree au moteur nominal courant.
+- le depot contient aussi des couches UI, benchmark, mobile et hardware, mais la baseline executable du RNG reste purement Python
+- certains repertoires de runtime et de benchmark sont des artefacts de test, pas des briques fonctionnelles du pipeline

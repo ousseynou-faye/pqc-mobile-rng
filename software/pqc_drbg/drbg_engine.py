@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 """
-Orchestrateur composite des deux moteurs DRBG du projet.
+Orchestrateur DRBG de la baseline Sponge-only.
 
-- Multiplexed Sponge est le moteur nominal par defaut.
-- Module-LWR reste disponible comme moteur secondaire de recherche et de
-  fallback controle.
+- Multiplexed Sponge est l'unique moteur DRBG.
+- La machine a etats explicite reste la frontiere officielle.
 """
 
 from dataclasses import dataclass, field
@@ -19,27 +18,20 @@ from .errors import (
     ReseedRequiredError,
 )
 from .interfaces import DRBGEngine
-from .lwr_core import ModuleLWRCore
-from .policy import DRBGPolicy, EngineSelectionMode
+from .policy import DRBGPolicy
 from .sponge_core import MultiplexedSpongeAdapter, build_reference_sponge
 from .state import DRBGEvent, DRBGLifecycleState, DRBGState
 
 
 @dataclass(slots=True)
 class PQCCompositeDRBG:
-    """Gestionnaire de moteurs post-quantiques avec machine a etats explicite."""
+    """Facade DRBG compatible avec l'ancien nom public, desormais sponge-only."""
 
-    lwr_engine: ModuleLWRCore = field(default_factory=ModuleLWRCore)
     sponge_engine: MultiplexedSpongeAdapter = field(
         default_factory=lambda: MultiplexedSpongeAdapter(sponge_factory=build_reference_sponge)
     )
     policy: DRBGPolicy = field(default_factory=DRBGPolicy)
     state: DRBGState = field(default_factory=DRBGState)
-
-    def _select_engine_for_instantiate(self) -> DRBGEngine:
-        if self.policy.selection_mode == EngineSelectionMode.FORCE_LWR_RESEARCH:
-            return self.lwr_engine
-        return self.sponge_engine
 
     def _ensure_not_fail_stop(self) -> None:
         if self.state.lifecycle_state == DRBGLifecycleState.FAIL_STOP:
@@ -47,34 +39,31 @@ class PQCCompositeDRBG:
                 "Le systeme est verrouille en FAIL_STOP jusqu'a une reinitialisation explicite."
             )
 
+    def _validate_state_coherence(self) -> None:
+        if not self.state.initialized:
+            return
+        if self.state.active_engine != self.sponge_engine.name:
+            raise InvalidDRBGStateError("Etat incoherent: moteur actif invalide pour la baseline sponge-only.")
+
 
     def instantiate(self, seed_material: bytes, personalization: bytes = b"") -> None:
-        " Je lance ici l'instanciation du moteur choisi par la politique, avec un fallback controle vers LWR si autorise."
+        """Instancie le moteur sponge et place la machine a etats en READY."""
         self._ensure_not_fail_stop()
-        engine = self._select_engine_for_instantiate()
-        engine.instantiate(seed_material, personalization=personalization)
-        if (
-            self.policy.selection_mode == EngineSelectionMode.ALLOW_EXPERIMENTAL_LWR_FALLBACK
-            and engine.name != self.lwr_engine.name
-        ):
-            self.lwr_engine.instantiate(seed_material, personalization=personalization)
+        self.policy.validate()
+        self.sponge_engine.instantiate(seed_material, personalization=personalization)
         self.state.mark_ready(
-            active_engine=engine.name,
+            active_engine=self.sponge_engine.name,
             reseed_reason="instantiate",
-            degraded=(engine.name == self.lwr_engine.name),
+            degraded=False,
         )
 
     def _active_engine(self) -> DRBGEngine:
+        self._validate_state_coherence()
         if not self.state.initialized or self.state.active_engine is None:
-            raise InvalidDRBGStateError("Le DRBG composite n'est pas initialise.")
-
-        if self.state.active_engine == self.sponge_engine.name:
-            return self.sponge_engine
-
-        if self.state.active_engine == self.lwr_engine.name:
-            return self.lwr_engine
-
-        raise EngineUnavailableError("Le moteur actif declare n'est pas disponible.")
+            raise InvalidDRBGStateError("Le DRBG n'est pas initialise.")
+        if self.state.active_engine != self.sponge_engine.name:
+            raise EngineUnavailableError("Le moteur actif declare n'est pas disponible.")
+        return self.sponge_engine
 
     def _check_reseed_policy(self) -> None:
         if self.state.lifecycle_state == DRBGLifecycleState.NEED_RESEED:
@@ -90,25 +79,6 @@ class PQCCompositeDRBG:
         if self.state.request_counter >= self.policy.reseed_interval_requests:
             self.state.mark_need_reseed(reason="Le compteur de requetes a atteint la limite de reseed.")
             raise ReseedRequiredError("Le seuil de reseed a ete atteint.")
-
-    def _can_switch_to_lwr_after_exception(self, exc: Exception) -> bool:
-        if self.policy.selection_mode != EngineSelectionMode.ALLOW_EXPERIMENTAL_LWR_FALLBACK:
-            return False
-        if not self.policy.allow_fallback_on_unavailability_only:
-            return False
-        if isinstance(exc, (FailStopError, ReseedRequiredError, DRBGError)):
-            return False
-        return True
-
-    def _switch_to_lwr_engine(self) -> None:
-        lwr_health = self.lwr_engine.health()
-        if not lwr_health.healthy:
-            raise HealthCheckError(
-                f"Le moteur LWR n'est pas pret pour la bascule : {lwr_health.reason}"
-            )
-
-        self.state.active_engine = self.lwr_engine.name
-        self.state.flags.degraded_research = True
 
     def generate(self, nbytes: int, additional_input: bytes = b"") -> bytes:
         self._ensure_not_fail_stop()
@@ -128,14 +98,15 @@ class PQCCompositeDRBG:
 
         try:
             out = engine.generate(nbytes, additional_input=additional_input)
-        except (FailStopError, ReseedRequiredError, DRBGError):
+        except (FailStopError, ReseedRequiredError):
             raise
         except Exception as exc:
-            if self._can_switch_to_lwr_after_exception(exc):
-                self._switch_to_lwr_engine()
-                out = self._active_engine().generate(nbytes, additional_input=additional_input)
-            else:
+            if self.policy.fail_stop_on_health_error:
+                self.state.transition(DRBGEvent.HEALTH_FAILURE, reason=str(exc) or "Generation echouee.")
+                raise FailStopError(f"Echec du moteur actif ({health.engine_name}) : {exc}") from exc
+            if isinstance(exc, DRBGError):
                 raise
+            raise HealthCheckError(str(exc) or "Generation echouee.") from exc
 
         self.state.request_counter += 1
         self.state.generated_bytes_since_reseed += len(out)
@@ -156,14 +127,6 @@ class PQCCompositeDRBG:
 
         engine = self._active_engine()
         engine.reseed(seed_material, additional_input=additional_input)
-        if (
-            self.policy.selection_mode == EngineSelectionMode.ALLOW_EXPERIMENTAL_LWR_FALLBACK
-            and engine.name != self.lwr_engine.name
-        ):
-            if self.lwr_engine.health().healthy:
-                self.lwr_engine.reseed(seed_material, additional_input=additional_input)
-            else:
-                self.lwr_engine.instantiate(seed_material, personalization=b"fallback-lwr")
         self.state.active_engine = engine.name
         self.state.last_reseed_reason = reason
         self.state.transition(DRBGEvent.RESEED, reason=reason)
@@ -184,7 +147,6 @@ class PQCCompositeDRBG:
             DRBGEvent.RESET_FROM_FAIL_STOP,
             reason=reason or "Reset explicite apres FAIL_STOP.",
         )
-        self.lwr_engine.zeroize()
         self.sponge_engine.zeroize()
         self.state.active_engine = None
         self.state.request_counter = 0
@@ -224,7 +186,6 @@ class PQCCompositeDRBG:
                 "reseed_interval_requests": self.policy.reseed_interval_requests,
                 "prediction_resistance": self.policy.prediction_resistance,
                 "fail_stop_on_health_error": self.policy.fail_stop_on_health_error,
-                "allow_fallback_on_unavailability_only": self.policy.allow_fallback_on_unavailability_only,
             },
             "active_engine_state": active,
         }
@@ -233,11 +194,12 @@ class PQCCompositeDRBG:
         return {
             "version": 1,
             "manager_state": self.state.export(),
-            "lwr_private_state": self.lwr_engine.export_private_state(),
             "sponge_private_state": self.sponge_engine.export_private_state(),
         }
 
     def import_sealable_state(self, payload: dict[str, object]) -> None:
+        if payload.get("version") != 1:
+            raise DRBGError("Version de payload scellee non supportee.")
         manager_state = payload["manager_state"]
         if not isinstance(manager_state, dict):
             raise DRBGError("manager_state doit etre un dictionnaire.")
@@ -259,18 +221,13 @@ class PQCCompositeDRBG:
         self.state.flags.degraded_research = bool(flags["degraded_research"])
         self.state.transition_history = []
 
-        lwr_private_state = payload["lwr_private_state"]
-        if not isinstance(lwr_private_state, dict):
-            raise DRBGError("lwr_private_state doit etre un dictionnaire.")
-        self.lwr_engine.import_private_state(lwr_private_state)
-
         sponge_private_state = payload.get("sponge_private_state")
         if isinstance(sponge_private_state, dict):
             self.sponge_engine.import_private_state(sponge_private_state)
         else:
             self.sponge_engine.zeroize()
+        self._validate_state_coherence()
 
     def zeroize(self) -> None:
-        self.lwr_engine.zeroize()
         self.sponge_engine.zeroize()
         self.state.mark_zeroized()

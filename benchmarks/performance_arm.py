@@ -1,4 +1,4 @@
-"""Benchmark logiciel reproductible pour Module-LWR et Multiplexed Sponge."""
+"""Benchmark logiciel reproductible pour le DRBG Multiplexed Sponge."""
 
 from __future__ import annotations
 
@@ -12,11 +12,13 @@ from analysis.benchmark_report import (
     export_benchmark_json,
     export_benchmark_markdown,
 )
+from software.conditioner import encode_conditioner_seed_for_drbg
 
 from .common import build_composite_drbg, collect_environment_info, measure_callable, summarize_ns
 from .config import BENCHMARK_PRESETS, BenchmarkConfig
 
-DEFAULT_SEED = b"stage7-performance-seed"
+DEFAULT_SEED = encode_conditioner_seed_for_drbg(b"stage7-performance-seed")
+RESEED_PREFIX = b"stage7-reseed-"
 
 
 def _measure_instantiate(engine_name: str, config: BenchmarkConfig) -> dict[str, Any]:
@@ -54,14 +56,16 @@ def _measure_reseed(engine_name: str, config: BenchmarkConfig) -> dict[str, Any]
     for _ in range(config.warmup_rounds):
         drbg = build_composite_drbg(engine_name)
         drbg.instantiate(DEFAULT_SEED)
-        drbg.reseed(b"stage7-reseed-warmup")
+        drbg.reseed(encode_conditioner_seed_for_drbg(RESEED_PREFIX + b"warmup"))
 
     for index in range(config.repetitions):
         drbg = build_composite_drbg(engine_name)
         drbg.instantiate(DEFAULT_SEED)
 
         elapsed_ns, peak_bytes, _ = measure_callable(
-            lambda: drbg.reseed(f"stage7-reseed-{index}".encode("ascii"))
+            lambda: drbg.reseed(
+                encode_conditioner_seed_for_drbg(RESEED_PREFIX + str(index).encode("ascii"))
+            )
         )
         timings.append(elapsed_ns)
         peaks.append(peak_bytes)
@@ -119,7 +123,7 @@ def _measure_generation_for_size(engine_name: str, output_size: int, config: Ben
 def run_performance_benchmark(
     config: BenchmarkConfig,
     *,
-    engines: tuple[str, ...] = ("module_lwr", "multiplexed_sponge"),
+    engines: tuple[str, ...] = ("multiplexed_sponge",),
 ) -> dict[str, Any]:
     """Execute un benchmark logiciel local et qualifie l'environnement reel."""
 

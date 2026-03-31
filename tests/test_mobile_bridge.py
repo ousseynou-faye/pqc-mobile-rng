@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+from uuid import uuid4
+
 from software.api import get_rng_service
 from software.api.rng_service import RNGServiceConfig, StateConfig
 from software.interface_hw.mobile_bridge import (
@@ -19,10 +22,17 @@ from software.interface_hw.mobile_bridge import (
 )
 
 
-def configure_mobile_service(tmp_path, name: str = "mobile_bridge"):
+def build_temp_root(name: str) -> Path:
+    root = Path(__file__).resolve().parents[1] / "tests_runtime" / "mobile_bridge"
+    path = root / f"{name}_{uuid4().hex[:8]}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def configure_mobile_service(root_dir: Path, name: str = "mobile_bridge"):
     config = RNGServiceConfig(
         state=StateConfig(
-            root_dir=tmp_path / "tests_runtime_mobile",
+            root_dir=root_dir,
             device_id=f"{name}-device",
             namespace=f"{name}-namespace",
             blob_id=f"{name}-blob",
@@ -42,8 +52,8 @@ def test_mobile_frame_round_trip():
     assert decoded.payload == b"abc"
 
 
-def test_mobile_bridge_generate_requires_instantiate(tmp_path):
-    configure_mobile_service(tmp_path, "generate_requires_init")
+def test_mobile_bridge_generate_requires_instantiate():
+    configure_mobile_service(build_temp_root("generate_requires_init"), "generate_requires_init")
     bridge = MobileBridge()
 
     response = MobileFrame.decode(bridge.handle_frame(encode_generate_request(3, length=16)))
@@ -52,8 +62,8 @@ def test_mobile_bridge_generate_requires_instantiate(tmp_path):
     assert response.request_id == 3
 
 
-def test_mobile_bridge_lifecycle_round_trip(tmp_path):
-    configure_mobile_service(tmp_path, "lifecycle")
+def test_mobile_bridge_lifecycle_round_trip():
+    configure_mobile_service(build_temp_root("lifecycle"), "lifecycle")
     bridge = MobileBridge()
 
     instantiate = MobileFrame.decode(bridge.handle_frame(encode_instantiate_request(1, personalization=b"mob")))

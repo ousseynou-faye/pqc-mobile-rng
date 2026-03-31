@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from software.conditioner import ConditioningResult, EntropyMixer
+from software.conditioner import (
+    ConditioningResult,
+    EntropyMixer,
+    encode_conditioner_seed_for_drbg,
+)
+from software.api.output_formats import format_output_bytes
 from software.entropy import CPUJitterSource, EntropyPool, SensorEntropySource
 from software.pqc_drbg import DRBGPolicy, EngineSelectionMode, PQCCompositeDRBG
 from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter, build_reference_sponge
@@ -65,17 +70,6 @@ class RNGServiceConfig:
     conditioner: ConditionerConfig = field(default_factory=ConditionerConfig)
     drbg: DRBGConfig = field(default_factory=DRBGConfig)
     state: StateConfig = field(default_factory=StateConfig)
-
-
-def _build_research_sponge(seed_digest: bytes):
-    """
-    Alias de transition vers l'implementation sponge de reference.
-
-    Le nom historique est conserve pour ne pas casser les imports internes
-    existants pendant la bascule d'architecture.
-    """
-
-    return build_reference_sponge(seed_digest)
 
 
 @dataclass
@@ -185,7 +179,7 @@ class RNGService:
         result = seed_result or self._last_conditioning or self.build_entropy_seed()
         drbg = self._build_drbg()
         drbg.instantiate(
-            result.seedinit,
+            encode_conditioner_seed_for_drbg(result.seedinit),
             personalization=self.config.drbg.personalization if personalization is None else personalization,
         )
         self._drbg = drbg
@@ -203,6 +197,19 @@ class RNGService:
         self._last_operation = "generate_bytes"
         return output
 
+    def format_output(self, output_bytes: bytes) -> dict[str, Any]:
+        """Formate une sortie en bytes/hex/binaire/decimal de maniere canonique."""
+
+        return format_output_bytes(output_bytes)
+
+    def generate_output_bundle(self, length: int, additional_input: bytes = b"") -> dict[str, Any]:
+        """Genere puis formate une sortie du RNG officiel."""
+
+        output = self.generate_bytes(length, additional_input=additional_input)
+        bundle = self.format_output(output)
+        bundle["additional_input_used"] = bool(additional_input)
+        return bundle
+
     def reseed_rng(self, *, additional_input: bytes = b"") -> ConditioningResult:
         """Reconstruit une seed fraiche et reseed le moteur courant."""
 
@@ -211,7 +218,11 @@ class RNGService:
                 "reseed_rng() exige un RNG instantie. Appelez instantiate_rng() avant le reseed."
             )
         result = self.build_entropy_seed()
-        self._drbg.reseed(result.seedinit, additional_input=additional_input, reason="rng_service_reseed")
+        self._drbg.reseed(
+            encode_conditioner_seed_for_drbg(result.seedinit),
+            additional_input=additional_input,
+            reason="rng_service_reseed",
+        )
         self._last_operation = "reseed_rng"
         return result
 

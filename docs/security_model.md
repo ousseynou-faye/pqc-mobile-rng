@@ -1,215 +1,115 @@
-# Modele de securite
+# Security Model
 
-## 1. Objectif / Perimetre
+## Portee
 
-Ce document decrit le modele de securite du prototype executable actuellement
-present dans le depot.
+Ce document decrit le modele de securite de la baseline executable du depot:
 
-Il distingue explicitement :
+- source d'entropie locale
+- conditionnement Toeplitz + SHAKE-256
+- derivation de graines LFSR
+- DRBG `Multiplexed Sponge`
+- gestion d'etat avec scellement logiciel simule
 
-- la securite experimentale observee ;
-- la securite argumentee par construction ;
-- ce qui ne constitue pas une conformite formelle.
+## Objectifs
 
-## 2. Vue d'ensemble
+Le systeme vise:
 
-La baseline consideree est :
+- unpredictabilite conditionnee a une entropie suffisante en entree
+- separation claire des couches `SRC -> COND -> DRBG -> STATE`
+- preservation de l'etat entre executions
+- reseed explicite
+- forward security pratique via rekeying et overwrite logique de l'etat
+
+## Hypotheses
+
+### Entropie
+
+La securite suppose que `SRC` apporte assez d'incertitude brute pour que `COND` produise un `seedinit` non predictable.
+
+### Conditionnement
+
+Toeplitz + SHAKE-256 est traite comme un compresseur d'entropie et un deriveur deterministe de seed, pas comme une preuve formelle de conformite SP 800-90.
+
+### LFSR et multiplexage
+
+Les LFSR `S_n` et `T_n` ne sont pas utilises seuls comme generateurs finaux. Ils servent de structure interne au schema Multiplexed Sponge:
+
+- `S_n` pilote `phi(l,n)`
+- `T_n` fournit la sequence secondaire
+- la sponge absorbe et etend l'etat final
+
+### Sponge
+
+La resistance finale repose sur:
+
+- la separation de domaine
+- le melange par permutation
+- la regeneration d'etat a l'instanciation et au reseed
+- l'usage de SHAKE-256 dans la canonicalisation des seeds
+
+## Flux d'entropie
 
 ```text
-SRC -> COND -> DRBG -> STATE
+entropie brute
+ -> Toeplitz
+ -> SHAKE-256
+ -> seedinit
+ -> derive_sponge_lfsr_seeds()
+ -> S_n, T_n
+ -> phi(l,n)
+ -> Multiplexed Sponge
+ -> sortie DRBG
 ```
 
-avec :
+## Progres de securite par etape
 
-- `COND = Toeplitz + SHAKE-256`
-- `DRBG nominal = Multiplexed Sponge`
-- `Module-LWR = moteur secondaire de recherche`
-- `STATE = persistance et protection simulees`
+### Instantiate
 
-## 3. Actifs a proteger
+- `seed_material` doit etre non vide et provenir explicitement de `seedinit`
+- un digest canonique est derive
+- l'instance sponge est reconstruite
+- l'etat passe a `ready`
 
-- l'entropie brute collectee ;
-- la seed conditionnee `Seedinit` ;
-- l'etat interne du moteur actif ;
-- la coherence de la machine a etats ;
-- l'integrite de l'etat scelle et restaure ;
-- la sortie pseudo-aleatoire exposee par le SDK.
+### Generate
 
-## 4. Hypotheses
+- refus si `need_reseed`
+- refus si `fail_stop`
+- `additional_input` declenche un rekey interne
+- l'etat de sortie reste coherent avec le compteur de generation
 
-### 4.1 Source d'entropie
+### Reseed
 
-Le prototype suppose que la couche `SRC` fournit une matiere premiere :
+- exige un moteur deja initialise
+- derive un nouvel etat a partir du seed frais
+- remet a zero les compteurs de requetes et d'octets
 
-- non entierement triviale a predire ;
-- suffisamment variable a l'echelle de la collecte ;
-- surveillee par des tests de sante simples.
+### Restore
 
-Cette hypothese reste empirique. Elle ne constitue pas une qualification
-materielle complete de la source.
+- la version du payload est verifiee
+- l'etat actif doit etre `multiplexed_sponge`
+- un etat incoherent declenche une erreur
 
-### 4.2 Conditionnement
+## Forward Security
 
-Le conditionneur `Toeplitz + SHAKE-256` est utilise pour :
+Le depot ne revendique pas une preuve formelle. En revanche:
 
-- separer la collecte d'entropie de la generation deterministe ;
-- fournir une seed d'initialisation stable au DRBG ;
-- attenuer des biais de la matiere brute.
+- l'etat est rederive par SHAKE-256 a l'instanciation et au reseed
+- `additional_input` peut provoquer un rekey avant squeeze
+- `zeroize()` supprime l'instance et efface les materiaux derives en memoire Python
 
-Il ne doit pas etre presente comme une preuve formelle complete de min-entropie.
+## Failure Model
 
-### 4.3 Moteur nominal
+Le composant entre en `fail_stop` sur:
 
-`Multiplexed Sponge` est le moteur nominal effectivement execute.
+- faute d'integrite
+- moteur actif non sain
+- echec de generation quand `fail_stop_on_health_error=True`
 
-La securite attendue est celle d'un prototype academique defendable, pas celle
-d'un composant certifie, homologue ou normalise.
+Ce mode empeche toute generation supplementaire jusqu'a reset explicite.
 
-### 4.4 Gestion d'etat
+## Limites
 
-La couche `STATE` suppose :
-
-- une machine a etats explicite ;
-- un comportement `FAIL_STOP` sur faute critique ;
-- une simulation de sealing, d'integrite et d'anti-rollback.
-
-Cette simulation n'est pas equivalente a un TEE mobile materiel reel.
-
-## 5. Menaces considerees
-
-- source gelee ou pathologique detectee par health checks simples ;
-- utilisation du RNG avant initialisation ;
-- generation alors qu'un reseed est requis ;
-- incoherence d'etat interne ;
-- alteration d'un blob scelle ;
-- tentative de rollback detectee par la logique de persistance simulee ;
-- bascule silencieuse non autorisee de moteur.
-
-## 6. Menaces non couvertes
-
-- compromission complete du systeme d'exploitation ;
-- extraction memoire par un adversaire privilegie ;
-- qualification complete des capteurs reels sur smartphone ;
-- resistance a tous les canaux auxiliaires ;
-- securite d'un TEE materiel reel ;
-- evaluation normative SP 800-90A, SP 800-90B, SP 800-22, FIPS ou CMVP.
-
-## 7. Role des composants
-
-### 7.1 Source d'entropie
-
-Elle fournit la matiere premiere. Sa qualite est evaluee par des tests
-experimentaux prudents, pas par une validation normative complete.
-
-### 7.2 Toeplitz + SHAKE-256
-
-Il s'agit du conditionneur officiel de la baseline. Il prepare `Seedinit` et
-separe `SRC` de `DRBG`.
-
-### 7.3 Multiplexed Sponge
-
-Il porte la generation deterministe nominale du prototype. C'est le coeur
-post-quantique effectivement active par defaut.
-
-### 7.4 Module-LWR
-
-Il est maintenu comme moteur secondaire de recherche, utile pour comparaison,
-experimentation et fallback controle. Il ne doit pas etre decrit comme le
-comportement normal par defaut.
-
-### 7.5 STATE / persistance / restauration
-
-La couche `STATE` protege la coherence de cycle de vie et simule des controles
-d'integrite et d'anti-rollback.
-
-## 8. Risques lies a l'export et a la restauration d'etat
-
-- un export prive mal manipule reste sensible ;
-- la restauration d'etat introduit un risque de replay si elle est retiree du
-  cadre de controle prevu ;
-- la simulation logicielle ne fournit pas les garanties d'un stockage materiel
-  protege ;
-- une mauvaise gestion des metadonnees de checkpoint peut invalider la logique
-  de restauration attendue.
-
-La documentation publique doit donc rester centree sur les exports non sensibles
-et sur la restauration administree.
-
-## 9. Limites de la simulation
-
-- `STATE` repose sur un `SimulatedTEE` ;
-- les capteurs peuvent etre simules ;
-- l'environnement est Python et local ;
-- les benchmarks ARM, energie et latence materielle ne sont pas des preuves de
-  deploiement reel.
-
-## 10. Limites du prototype Python
-
-- absence d'isolation forte de type enclave materielle ;
-- sensibilite a l'environnement d'execution local ;
-- absence de garantie temps reel ;
-- surface memoire et runtime Python non equivalentes a un deploiement mobile
-  final.
-
-## 11. Securite experimentale, securite argumentee et non-conformite formelle
-
-### 11.1 Securite experimentale observee
-
-- health checks simples ;
-- validation statistique experimentale ;
-- benchmark logiciel et comparaison de cout ;
-- detection experimentale d'integrite et de rollback.
-
-### 11.2 Securite argumentee
-
-- separation des couches `SRC -> COND -> DRBG -> STATE` ;
-- conditionneur explicite ;
-- moteur nominal fige ;
-- machine a etats explicite et politique de fail-stop.
-
-### 11.3 Ce qui n'est pas demontre formellement
-
-- aucune conformite NIST formelle ;
-- aucune certification produit ;
-- aucune preuve cryptographique derivee des seuls tests statistiques ;
-- aucune equivalence a une cible mobile deployee.
-
-## 12. Risques residuels
-
-- surestimation possible de la qualite de la source d'entropie ;
-- dependance forte a l'environnement local d'execution ;
-- ecart entre prototype Python et deploiement mobile reel ;
-- risques associes aux fonctions d'etat si elles etaient exposees sans
-  gouvernance adequate ;
-- differences potentielles entre comportement logiciel et future cible
-  materielle.
-
-## 13. Statut actuel
-
-### Implemente
-
-- baseline complete `SRC -> COND -> DRBG -> STATE`
-- health checks et validation experimentale
-- machine a etats et fail-stop
-- integrite et anti-rollback simules
-
-### Experimental
-
-- comparaison LWR vs Sponge
-- benchmarks de cout logiciel
-- cadres energie et materiel sans mesures reelles par defaut
-
-### Futur
-
-- execution sur cible ARM reelle
-- instrumentation energie reelle
-- durcissement materiel
-- acceleration NTT
-
-## 14. Evolutions futures
-
-- qualifer une vraie cible mobile ou embarquee ;
-- renforcer la protection d'etat avec une cible materielle reelle ;
-- etendre l'analyse securitaire au-dela du prototype Python ;
-- ajouter des preuves, rapports ou validations externes quand elles seront
-  effectivement disponibles.
+- Pas de revendication de certification NIST/FIPS/CMVP
+- Pas de TEE materiel reel dans la baseline
+- Les tests statistiques sont des indicateurs, pas des preuves
+- Le contexte "post-quantique" du depot repose sur les objectifs de robustesse architecturale et de separation des couches, pas sur une validation normative complete

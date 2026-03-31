@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from software.api import get_rng_service
 from software.api.exceptions import RNGInvalidLengthError, RNGNotInitializedError, RNGStateError
+from software.api.output_formats import format_output_bytes
 from software.api.rng_service import RNGServiceError
 
 MAX_PUBLIC_GENERATE_BYTES = 4096
@@ -45,3 +46,19 @@ def rng_generate(length: int) -> bytes:
     """Alias public de `rng_get_bytes()`."""
 
     return rng_get_bytes(length)
+
+
+def rng_get_output_formats(length: int) -> dict[str, object]:
+    """Retourne une vue formatee de la sortie officielle du RNG."""
+
+    _validate_length(length)
+    service = get_rng_service()
+    if service.drbg is None:
+        raise RNGNotInitializedError(
+            "Le RNG n'est pas initialise. Appelez rng_init() avant rng_get_output_formats()."
+        )
+    try:
+        output = service.generate_bytes(length)
+    except RNGServiceError as exc:
+        raise RNGStateError(f"Echec de rng_get_output_formats(): {exc}") from exc
+    return format_output_bytes(output)

@@ -33,7 +33,6 @@ def test_statistical_smoke_campaign_generates_report():
     output_dir.mkdir(parents=True, exist_ok=True)
     exported = export_campaign_report(report, output_dir=output_dir, basename="smoke_campaign")
 
-    assert "module_lwr" in report["engines"]
     assert "multiplexed_sponge" in report["engines"]
     assert Path(exported["json"]).exists()
     assert Path(exported["markdown"]).exists()

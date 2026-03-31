@@ -8,9 +8,7 @@ import sys
 import tracemalloc
 from typing import Any, Callable
 
-from software.api.rng_service import _build_research_sponge
-from software.pqc_drbg import DRBGPolicy, EngineSelectionMode, PQCCompositeDRBG
-from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter
+from software.pqc_drbg import PQCCompositeDRBG
 
 
 def collect_environment_info() -> dict[str, Any]:
@@ -27,16 +25,9 @@ def collect_environment_info() -> dict[str, Any]:
 
 
 def build_composite_drbg(engine_name: str) -> PQCCompositeDRBG:
-    if engine_name == "multiplexed_sponge":
-        return PQCCompositeDRBG()
-
-    if engine_name == "module_lwr":
-        return PQCCompositeDRBG(
-            sponge_engine=MultiplexedSpongeAdapter(sponge_factory=_build_research_sponge),
-            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
-        )
-
-    raise ValueError(f"Moteur inconnu: {engine_name}")
+    if engine_name != "multiplexed_sponge":
+        raise ValueError(f"Moteur inconnu: {engine_name}")
+    return PQCCompositeDRBG()
 
 
 def summarize_ns(samples_ns: list[int]) -> dict[str, float | int]:

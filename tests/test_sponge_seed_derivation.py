@@ -4,6 +4,7 @@ from hashlib import shake_256
 from pathlib import Path
 from uuid import uuid4
 
+from software.conditioner import encode_conditioner_seed_for_drbg
 from software.api.rng_service import RNGService, RNGServiceConfig, StateConfig
 from software.lfsr.recurrence_sequences import RecurrenceSequence
 from software.pqc_drbg.sponge_core import build_reference_sponge
@@ -97,6 +98,14 @@ def test_rng_service_bridges_conditioner_seed_to_sponge_lfsr_states():
     seed_digest = bytes.fromhex(private_state["seed_digest_hex"])
     expected = _build_expected_reference_sponge(seed_digest)
 
-    assert seed_digest == shake_256(b"sponge_init:" + conditioning.seedinit).digest(64)
+    assert seed_digest == shake_256(
+        b"sponge_init:" + conditioning.seedinit
+    ).digest(64)
     assert private_state["instance_state"]["seq_s_state"] == expected.sequence.seq_s.get_state()
     assert private_state["instance_state"]["seq_t_state"] == expected.sequence.seq_t.get_state()
+
+
+def test_drbg_seed_material_encoding_is_deterministic_and_required():
+    encoded = encode_conditioner_seed_for_drbg(b"seed-cond-001")
+    assert encoded == encode_conditioner_seed_for_drbg(b"seed-cond-001")
+    assert encoded != b"seed-cond-001"

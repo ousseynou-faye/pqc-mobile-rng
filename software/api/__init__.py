@@ -24,7 +24,8 @@ from .exceptions import (  # noqa: E402
     RNGRestoreError,
     RNGStateError,
 )
-from .rng_generate import rng_generate, rng_get_bytes  # noqa: E402
+from .output_formats import format_output_bytes, group_bits, to_binary, to_decimal, to_hex  # noqa: E402
+from .rng_generate import rng_generate, rng_get_bytes, rng_get_output_formats  # noqa: E402
 from .rng_health import rng_health  # noqa: E402
 from .rng_init import rng_init  # noqa: E402
 from .rng_reseed import rng_reseed, rng_restore_state, rng_zeroize  # noqa: E402
@@ -38,7 +39,10 @@ __all__ = [
     "RNGStateError",
     "RNGService",
     "RNGServiceConfig",
+    "format_output_bytes",
     "get_rng_service",
+    "group_bits",
+    "rng_get_output_formats",
     "rng_generate",
     "rng_get_bytes",
     "rng_health",
@@ -46,4 +50,7 @@ __all__ = [
     "rng_reseed",
     "rng_restore_state",
     "rng_zeroize",
+    "to_binary",
+    "to_decimal",
+    "to_hex",
 ]

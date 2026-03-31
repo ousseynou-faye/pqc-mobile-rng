@@ -1,276 +1,155 @@
-# Specification de l'API
+# Specification API
 
-## 1. Objectif / Perimetre
+## Objectif
 
-Ce document decrit la surface publique reellement exposee par le depot pour le
-RNG post-quantique.
+Cette specification decrit les interfaces utiles pour piloter, observer et tester le RNG logiciel.
 
-L'API actuelle est un SDK Python local. Elle n'est ni un service HTTP natif, ni
-une API mobile finale.
+## Service canonique
 
-## 2. Vue d'ensemble
+Fichier: `software/api/rng_service.py`
 
-Le depot expose deux niveaux d'interface :
+### `build_entropy_seed() -> ConditioningResult`
 
-- un coeur DRBG dans `software/pqc_drbg/` ;
-- un SDK Python plus stable dans `software/api/`.
+Construit la graine conditionnee a partir de `SRC` et `COND`.
 
-Le point d'entree recommande pour l'usage applicatif local est `software.api`.
+Expose indirectement:
 
-## 3. Structure / Surface publique
+- `raw_data`
+- `toeplitz_seed`
+- `toeplitz_output`
+- `context_info`
+- `seedinit`
 
-Les symboles publics exposes par `software/api/__init__.py` sont :
+### `instantiate_rng(personalization: bytes | None = None, seed_result: ConditioningResult | None = None)`
 
-- `get_rng_service`
-- `RNGService`
-- `RNGServiceConfig`
-- `rng_init`
-- `rng_get_bytes`
-- `rng_generate`
-- `rng_health`
-- `rng_reseed`
-- `rng_restore_state`
-- `rng_zeroize`
-- `RNGAPIError`
-- `RNGNotInitializedError`
-- `RNGInvalidLengthError`
-- `RNGStateError`
-- `RNGRestoreError`
-- `RNGProfileError`
+Initialise le DRBG `Multiplexed Sponge`.
 
-Le coeur DRBG expose aussi `PQCCompositeDRBG`, mais le SDK Python reste la
-surface la plus simple pour la soutenance et les usages locaux.
+Comportement:
 
-## 4. Interfaces / Composants
+- si `seed_result` est absent, le service reconstruit une seed via `build_entropy_seed()`
+- sinon il reutilise explicitement la seed fournie
 
-### 4.1 Service canonique
+### `generate_bytes(length: int, additional_input: bytes = b"") -> bytes`
 
-`RNGService` dans `software/api/rng_service.py` orchestre la baseline :
+Retourne les octets produits par le DRBG officiel.
 
-```text
-SRC -> COND -> DRBG -> STATE
-```
+Point important:
 
-Pour le moteur nominal `Multiplexed Sponge`, le chainage interne documente est :
+- c'est la frontiere fonctionnelle qui produit la sortie binaire finale
 
-```text
-ConditioningResult.seedinit
--> digest interne du DRBG sponge
--> derive_sponge_lfsr_seeds(...)
--> RecurrenceSequence(S_n, T_n)
--> PhiFunction
--> MultiplexedSequence
--> MultiplexedSponge
-```
+### `generate_output_bundle(length: int, additional_input: bytes = b"") -> dict`
 
-Le point de branchement effectif entre COND et les LFSR du sponge se trouve
-dans `software/pqc_drbg/sponge_core.py`, qui appelle
-`software/sponge/seed_derivation.py`.
+Nouvelle interface d'observabilite.
 
-Le detail du chemin logiciel complet est documente dans
-`docs/cond_to_lfsr_pipeline.md`.
+Retour:
 
-Methodes principales :
+- `raw_bytes`
+- `raw_bytes_repr`
+- `raw_byte_values`
+- `length_bytes`
+- `length_bits`
+- `byteorder`
+- `hex`
+- `binary`
+- `binary_grouped`
+- `decimal`
 
-- `build_entropy_seed()`
-- `instantiate_rng(...)`
-- `generate_bytes(length, additional_input=b"")`
-- `reseed_rng(additional_input=b"")`
-- `checkpoint_state(...)`
-- `restore_state(...)`
-- `zeroize()`
-- `sdk_status()`
-- `health_status()`
+### `reseed_rng()`
 
-### 4.2 Wrappers publics SDK
+Reconstruit une seed neuve et reseed le moteur courant.
 
-#### `rng_init(personalization: bytes | None = None, force_reinit: bool = False, profile: str | None = None) -> bool`
+### `checkpoint_state()` / `restore_state()`
 
-- initialise le service RNG canonique pour le processus courant ;
-- supporte les profils `baseline` et `default` ;
-- renvoie `True` si le RNG est pret.
+Scelle puis restaure l'etat du DRBG et de son manager.
 
-#### `rng_get_bytes(length: int) -> bytes`
+### `sdk_status()` / `health_status()`
 
-- renvoie des octets pseudo-aleatoires via le SDK public ;
-- impose une taille strictement positive ;
-- impose une limite publique de `4096` octets par appel.
+Expose un etat synthetique et non sensible du service.
 
-#### `rng_generate(length: int) -> bytes`
+## Wrappers publics SDK
 
-- alias public de `rng_get_bytes`.
+Fichiers:
 
-#### `rng_health() -> dict`
+- `software/api/rng_init.py`
+- `software/api/rng_generate.py`
+- `software/api/rng_reseed.py`
+- `software/api/rng_health.py`
 
-- renvoie un statut public non sensible ;
-- ne doit pas exposer seed, entropie brute ni etat interne complet.
+### `rng_init() -> bool`
 
-#### `rng_reseed(additional_input: bytes | None = None) -> bool`
+Initialise l'instance partagee du service.
 
-- force un reseed controle du RNG courant.
+### `rng_get_bytes(length: int) -> bytes`
 
-#### `rng_restore_state(payload_metadata: dict | None = None) -> bool`
+Lecture publique directe de la sortie.
 
-- restaure un etat scelle via la couche `STATE`.
+### `rng_generate(length: int) -> bytes`
 
-#### `rng_zeroize() -> bool`
+Alias public de `rng_get_bytes`.
 
-- efface l'etat memoire maintenu par le SDK pour la session courante.
+### `rng_get_output_formats(length: int) -> dict`
 
-### 4.3 Fonctions utilitaires exposees mais plus internes
+Nouvelle interface publique de visualisation.
 
-Le depot expose aussi des wrappers fins non necessairement destines a la surface
-la plus simple :
-
-- `build_entropy_seed()`
-- `instantiate_rng()`
-- `generate_bytes()`
-- `reseed_rng()`
-- `checkpoint_state()`
-- `restore_state()`
-
-Ils sont reels dans le depot, mais la documentation de soutenance peut rester
-centree sur `rng_init / rng_get_bytes / rng_health / rng_reseed / rng_restore_state / rng_zeroize`.
-
-## 5. Hypotheses
-
-- L'API est utilisee localement dans un processus Python.
-- La machine a etats du service canonique pilote l'autorisation de generation et
-  de reseed.
-- Le SDK ne doit pas exposer de materiau sensible dans sa surface publique.
-
-## 6. Comportements attendus
-
-### 6.1 Initialisation
-
-Avant toute generation publique, il faut appeler :
+Usage type:
 
 ```python
-rng_init(...)
-```
-
-ou instancier explicitement `RNGService`.
-
-### 6.2 Generation
-
-`rng_get_bytes(length)` :
-
-- verifie `length` ;
-- exige un RNG deja initialise ;
-- refuse les tailles au-dela de la limite publique.
-
-### 6.3 Reseed
-
-`rng_reseed()` :
-
-- exige un RNG deja initialise ;
-- reconstruit une seed fraiche via la baseline `SRC -> COND -> DRBG`.
-
-### 6.4 Health / status
-
-`rng_health()` expose un etat public, notamment :
-
-- `initialized`
-- `instantiated`
-- `state_available`
-- `reseed_supported`
-- `last_operation`
-- `profile`
-- `health_status`
-- `lifecycle_state`
-
-### 6.5 Export / restore
-
-La surface publique supporte la restauration via `rng_restore_state()`.
-
-La creation d'un checkpoint est reelle dans le depot, mais elle passe surtout
-par `RNGService.checkpoint_state(...)` ou par le wrapper fin `checkpoint_state(...)`.
-
-### 6.6 Zeroize
-
-`rng_zeroize()` :
-
-- efface l'etat memoire du service courant ;
-- remet le SDK dans un etat non initialise.
-
-## 7. Gestion d'erreurs
-
-Erreurs publiques principales :
-
-- `RNGAPIError`
-- `RNGNotInitializedError`
-- `RNGInvalidLengthError`
-- `RNGStateError`
-- `RNGRestoreError`
-- `RNGProfileError`
-
-Principes :
-
-- les erreurs doivent rester explicites ;
-- la surface publique ne doit pas divulguer de secret ;
-- les details sensibles du DRBG ne doivent pas etre exposes dans les messages.
-
-## 8. Machine a etats logique
-
-Le coeur du depot repose sur une machine a etats explicite, exposee
-indirectement par `export_state()` et `sdk_status()`.
-
-Etats principaux :
-
-- `uninitialized`
-- `ready`
-- `need_reseed`
-- `fail_stop`
-- `zeroized`
-
-Le mode de recherche degrade est represente par un drapeau logique et non par un
-etat public distinct.
-
-## 9. Exemple minimal d'utilisation
-
-```python
-from software.api import rng_health, rng_init, rng_reseed, rng_get_bytes, rng_zeroize
+from software.api import rng_get_output_formats, rng_init
 
 rng_init(force_reinit=True)
-data = rng_get_bytes(32)
-status = rng_health()
-rng_reseed()
-rng_zeroize()
+bundle = rng_get_output_formats(16)
+print(bundle["hex"])
+print(bundle["decimal"])
 ```
 
-Exemple avec service canonique :
+### `rng_reseed()`, `rng_restore_state()`, `rng_zeroize()`, `rng_health()`
+
+Wrappers de cycle de vie et d'etat.
+
+## Utilitaires de conversion
+
+Fichier: `software/api/output_formats.py`
+
+Fonctions:
+
+- `to_decimal(output_bytes, byteorder="big")`
+- `to_hex(output_bytes)`
+- `to_binary(output_bytes)`
+- `group_bits(binary_string, group_size=8, separator=" ")`
+- `format_output_bytes(output_bytes, byteorder="big", bit_group_size=8)`
+
+## Contrat de conversion decimale
+
+La valeur decimale est obtenue par:
 
 ```python
-from software.api import get_rng_service
-
-service = get_rng_service(reset=True)
-service.instantiate_rng()
-data = service.generate_bytes(32)
-status = service.sdk_status()
+int.from_bytes(output_bytes, "big", signed=False)
 ```
 
-## 10. Limites
+Hypotheses:
 
-- Il ne s'agit pas d'une API mobile finale.
-- Il n'existe pas de service HTTP natif dans la baseline.
-- La persistance securisee reste une simulation logicielle.
-- Certaines fonctions sont des wrappers pratiques pour tests et demo, pas une
-  promesse de stabilite ABI a long terme.
+- entree: exactement les octets de sortie du RNG
+- entier non signe
+- ordre des octets: `big-endian`
+- pas de signe
+- pas de normalisation supplementaire
 
-## 11. Statut actuel
+Consequences:
 
-### Implemente
+- deux tableaux d'octets differents peuvent produire la meme valeur numerique si l'un ajoute des zeros de tete
+- pour identifier une sortie de facon exacte, il faut comparer les octets ou au minimum `hex` + `length_bytes`
 
-- SDK Python local
-- service canonique `RNGService`
-- wrappers publics de base
-- health public non sensible
-- zeroize et restauration d'etat
+## Gestion des erreurs
 
-### Futur possible
+Les utilitaires de formatage rejettent:
 
-- wrappers mobiles natifs ;
-- couche HTTP ou IPC ;
-- adaptation Android ou embarquee.
+- entree non `bytes`
+- entree vide
+- `byteorder` invalide
+- `group_size <= 0`
 
-Ces extensions futures ne doivent pas etre presentees comme deja disponibles.
+## Limite publique sur la generation
+
+`rng_get_bytes()` et `rng_get_output_formats()` appliquent la meme limite:
+
+- `1 <= length <= 4096`

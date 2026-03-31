@@ -1,5 +1,6 @@
 import pytest
 
+from software.conditioner import encode_conditioner_seed_for_drbg
 from software.pqc_drbg.drbg_engine import PQCCompositeDRBG
 from software.pqc_drbg.errors import DRBGError, FailStopError, ReseedRequiredError
 from software.pqc_drbg.policy import DRBGPolicy, EngineSelectionMode
@@ -28,7 +29,7 @@ def test_initial_state_is_uninitialized():
 
 def test_instantiate_moves_to_ready():
     drbg = PQCCompositeDRBG()
-    drbg.instantiate(b"seed-1")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-1"))
     assert drbg.state.lifecycle_state == DRBGLifecycleState.READY
 
 
@@ -38,7 +39,7 @@ def test_reseed_limit_moves_to_need_reseed():
         reseed_interval_requests=1,
     )
     drbg = PQCCompositeDRBG(policy=policy)
-    drbg.instantiate(b"seed-2")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-2"))
 
     _ = drbg.generate(8)
 
@@ -54,20 +55,20 @@ def test_reseed_returns_to_ready():
         reseed_interval_requests=1,
     )
     drbg = PQCCompositeDRBG(policy=policy)
-    drbg.instantiate(b"seed-3")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-3"))
 
     _ = drbg.generate(8)
 
     with pytest.raises(ReseedRequiredError):
         drbg.generate(8)
 
-    drbg.reseed(b"fresh-seed")
+    drbg.reseed(encode_conditioner_seed_for_drbg(b"fresh-seed"))
     assert drbg.state.lifecycle_state == DRBGLifecycleState.READY
 
 
 def test_health_failure_moves_to_fail_stop():
     drbg = PQCCompositeDRBG()
-    drbg.instantiate(b"seed-4")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-4"))
     drbg.sponge_engine.zeroize()
 
     with pytest.raises(FailStopError):
@@ -78,7 +79,7 @@ def test_health_failure_moves_to_fail_stop():
 
 def test_fail_stop_blocks_generation():
     drbg = PQCCompositeDRBG()
-    drbg.instantiate(b"seed-5")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-5"))
     drbg.signal_integrity_failure("test integrity break")
 
     with pytest.raises(FailStopError):
@@ -87,7 +88,7 @@ def test_fail_stop_blocks_generation():
 
 def test_zeroize_moves_to_zeroized():
     drbg = PQCCompositeDRBG()
-    drbg.instantiate(b"seed-6")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-6"))
     drbg.zeroize()
 
     assert drbg.state.lifecycle_state == DRBGLifecycleState.ZEROIZED
@@ -102,20 +103,46 @@ def test_invalid_reseed_from_uninitialized_is_rejected():
 
 def test_reset_from_fail_stop_returns_to_uninitialized():
     drbg = PQCCompositeDRBG()
-    drbg.instantiate(b"seed-7")
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"seed-7"))
     drbg.signal_integrity_failure("manual fail stop")
 
     assert drbg.state.lifecycle_state == DRBGLifecycleState.FAIL_STOP
 
     drbg.reset_from_fail_stop("operator reset")
     assert drbg.state.lifecycle_state == DRBGLifecycleState.UNINITIALIZED
+def test_state_restoration_rejects_invalid_active_engine():
+    drbg = PQCCompositeDRBG(sponge_engine=MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory))
+    payload = {
+        "version": 1,
+        "manager_state": {
+            "lifecycle_state": "ready",
+            "active_engine": "invalid_engine",
+            "request_counter": 0,
+            "generated_bytes_since_reseed": 0,
+            "last_reseed_reason": "restore",
+            "last_failure_reason": "",
+            "flags": {
+                "prediction_resistance_request": False,
+                "security_strength_reached": False,
+                "fail_stop": False,
+                "reseed_required": False,
+                "degraded_research": False,
+            },
+        },
+        "sponge_private_state": {
+            "initialized": True,
+            "seed_digest_hex": "00" * 64,
+            "generate_counter": 0,
+            "instance_state": None,
+        },
+    }
+
+    with pytest.raises(DRBGError):
+        drbg.import_sealable_state(payload)
 
 
-def test_force_lwr_research_starts_in_ready():
-    sponge = MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory)
-    policy = DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH)
-    drbg = PQCCompositeDRBG(sponge_engine=sponge, policy=policy)
+def test_instantiate_rejects_unconditioned_seed_material():
+    drbg = PQCCompositeDRBG()
 
-    drbg.instantiate(b"seed-8")
-    assert drbg.state.lifecycle_state == DRBGLifecycleState.READY
-    assert drbg.state.flags.degraded_research is True
+    with pytest.raises(DRBGError, match="conditionneur"):
+        drbg.instantiate(b"seed-non-conditionnee")

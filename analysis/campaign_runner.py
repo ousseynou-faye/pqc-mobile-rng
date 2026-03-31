@@ -1,4 +1,4 @@
-"""Orchestrateur de campagnes comparatives pour l'etape 6."""
+"""Orchestrateur de campagnes statistiques pour l'etape 6."""
 
 from __future__ import annotations
 
@@ -8,9 +8,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from software.api.rng_service import _build_research_sponge
-from software.pqc_drbg import DRBGPolicy, EngineSelectionMode, PQCCompositeDRBG
-from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter
+from software.conditioner import encode_conditioner_seed_for_drbg
+from software.pqc_drbg import PQCCompositeDRBG
 
 from .bit_metrics import compute_bit_balance
 from .statistical_tests import bytes_to_bits, run_sp800_22_inspired_suite
@@ -38,20 +37,11 @@ CAMPAIGN_PRESETS: dict[str, CampaignConfig] = {
 
 
 def _build_drbg(engine_name: str) -> PQCCompositeDRBG:
-    if engine_name == "multiplexed_sponge":
-        drbg = PQCCompositeDRBG()
-        drbg.instantiate(b"stage6-multiplexed-sponge-seed")
-        return drbg
-
-    if engine_name == "module_lwr":
-        drbg = PQCCompositeDRBG(
-            sponge_engine=MultiplexedSpongeAdapter(sponge_factory=_build_research_sponge),
-            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
-        )
-        drbg.instantiate(b"stage6-module-lwr-seed")
-        return drbg
-
-    raise ValueError(f"Moteur inconnu: {engine_name}")
+    if engine_name != "multiplexed_sponge":
+        raise ValueError(f"Moteur inconnu: {engine_name}")
+    drbg = PQCCompositeDRBG()
+    drbg.instantiate(encode_conditioner_seed_for_drbg(b"stage6-multiplexed-sponge-seed"))
+    return drbg
 
 
 def _aggregate_engine_runs(run_results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -119,9 +109,9 @@ def _write_csv_summary(report: dict[str, Any], output_path: str | Path) -> Path:
 def run_comparative_campaign(
     config: CampaignConfig,
     *,
-    engines: tuple[str, ...] = ("multiplexed_sponge", "module_lwr"),
+    engines: tuple[str, ...] = ("multiplexed_sponge",),
 ) -> dict[str, Any]:
-    """Lance une campagne comparative reproductible sur des flux DRBG."""
+    """Lance une campagne reproductible sur des flux du DRBG officiel."""
 
     if config.n_bits <= 0:
         raise ValueError("n_bits doit etre > 0.")
