@@ -51,6 +51,25 @@ surface la plus simple pour la soutenance et les usages locaux.
 SRC -> COND -> DRBG -> STATE
 ```
 
+Pour le moteur nominal `Multiplexed Sponge`, le chainage interne documente est :
+
+```text
+ConditioningResult.seedinit
+-> digest interne du DRBG sponge
+-> derive_sponge_lfsr_seeds(...)
+-> RecurrenceSequence(S_n, T_n)
+-> PhiFunction
+-> MultiplexedSequence
+-> MultiplexedSponge
+```
+
+Le point de branchement effectif entre COND et les LFSR du sponge se trouve
+dans `software/pqc_drbg/sponge_core.py`, qui appelle
+`software/sponge/seed_derivation.py`.
+
+Le detail du chemin logiciel complet est documente dans
+`docs/cond_to_lfsr_pipeline.md`.
+
 Methodes principales :
 
 - `build_entropy_seed()`

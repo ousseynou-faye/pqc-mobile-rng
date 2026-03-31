@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import shake_256
 
 from software.lfsr import RecurrenceSequence
-from software.sponge import MultiplexedSponge
+from software.sponge import MultiplexedSponge, derive_sponge_lfsr_seeds
 
 from .errors import DRBGError
 from .interfaces import DRBGEngine, EngineHealth, StateExport
@@ -14,13 +14,22 @@ from .interfaces import DRBGEngine, EngineHealth, StateExport
 
 
 def build_reference_sponge(seed_digest: bytes) -> MultiplexedSponge:
-    """Construit l'implementation sponge de reference du projet."""
+    """Construit l'implementation sponge de reference du projet.
 
-    seed_s = (int.from_bytes(seed_digest[:2], "big") % ((1 << 16) - 1)) + 1
-    seed_t = (int.from_bytes(seed_digest[2:4], "big") % ((1 << 16) - 1)) + 1
+    `seed_digest` est le materiau canonicalise par la couche DRBG a partir de la
+    seed recue de COND (`ConditioningResult.seedinit`). Les etats initiaux des
+    deux LFSR sont ensuite derives explicitement avec separation de domaine.
+    """
 
-    seq_s = RecurrenceSequence(degree=16, seed=seed_s)
-    seq_t = RecurrenceSequence(degree=16, seed=seed_t)
+    derived = derive_sponge_lfsr_seeds(
+        seed_digest,
+        degree_s=16,
+        degree_t=16,
+        context=b"build_reference_sponge",
+    )
+
+    seq_s = RecurrenceSequence(degree=16, seed=derived.seed_s)
+    seq_t = RecurrenceSequence(degree=16, seed=derived.seed_t)
     sponge = MultiplexedSponge(seq_s=seq_s, seq_t=seq_t, l=4, rate=128, capacity=128)
 
     material = shake_256(b"rng-service-sponge:" + seed_digest).digest(32)

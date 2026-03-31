@@ -17,11 +17,18 @@ Le prototype combine :
 - un etat de sponge avec phases d'absorption et de squeeze ;
 - un orchestrateur `MultiplexedSponge` qui assemble ces composants.
 
+Dans la baseline DRBG du depot, les etats initiaux de ces deux suites ne sont
+plus choisis par simple decoupage d'octets. Ils sont derives explicitement a
+partir de la seed conditionnee issue de COND, via le pont
+`software/sponge/seed_derivation.py`.
+
 ## 3. Structure des dossiers
 
 - `software/lfsr/` : LFSR, suites de recurrence et polynomes primitifs.
 - `software/sponge/` : `phi`, sequence multiplexee, etat sponge, absorption,
   squeeze et orchestrateur.
+- `software/sponge/seed_derivation.py` : derivation deterministe des graines
+  `seed_s` et `seed_t` depuis la seed canonicalisee du DRBG.
 - `tests/` : tests de non-regression du prototype.
 - `docs/` : documentation technique du memoire.
 
@@ -43,7 +50,33 @@ Le prototype combine :
 - `sponge_absorb.py` : phase d'absorption.
 - `sponge_squeeze.py` : phase de squeeze.
 - `multiplexed_sponge.py` : orchestrateur de haut niveau.
+- `seed_derivation.py` : pont explicite entre seed conditionnee et etats LFSR.
 - `__init__.py` : exports publics du sous-package.
+
+## 4.b Initialisation canonique des deux suites
+
+Le chemin nominal du depot est :
+
+```text
+ConditioningResult.seedinit
+  -> digest DRBG sponge
+  -> derive_sponge_lfsr_seeds(...)
+  -> RecurrenceSequence(S_n, T_n)
+  -> PhiFunction
+  -> MultiplexedSequence
+  -> MultiplexedSponge
+```
+
+La derivation utilise SHAKE-256 avec separation de domaine :
+
+- `SEQ_S` pour la graine de `S_n` ;
+- `SEQ_T` pour la graine de `T_n`.
+
+Pour chaque LFSR de degre `d`, la valeur derivee est ensuite ramenee dans
+`[1, 2^d - 1]`, ce qui interdit explicitement l'etat nul.
+
+Pour un suivi plus detaille du chainage logiciel entre COND et les deux LFSR,
+voir aussi `docs/cond_to_lfsr_pipeline.md`.
 
 ## 5. Definition de `phi(l, n)`
 

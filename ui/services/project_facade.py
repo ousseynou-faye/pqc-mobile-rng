@@ -121,7 +121,16 @@ class ProjectFacade:
         personalization: bytes = b"",
         extra_context: bytes = b"",
     ) -> dict[str, Any]:
-        mixer = EntropyMixer()
+        input_bits = len(raw_data) * 8
+        if input_bits <= 0:
+            raise ValueError("raw_data ne doit pas etre vide.")
+
+        # Dans le laboratoire UI, on garde une lecture conservative du
+        # conditionnement : la sortie Toeplitz reste strictement plus petite que
+        # l'entree brute quand celle-ci est courte, afin de preserv­er
+        # l'intuition de reduction montree par les cartes et les graphiques.
+        toeplitz_output_bits = min(256, max(1, input_bits - 1))
+        mixer = EntropyMixer(toeplitz_output_bits=toeplitz_output_bits)
         result = mixer.condition_raw_data(
             raw_data=raw_data,
             metadata=metadata,

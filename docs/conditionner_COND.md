@@ -70,6 +70,32 @@ result = mixer.condition_raw_data(
 print(result.seedinit.hex())
 ```
 
+## Sortie canonique vers le sponge
+
+La sortie canonique de COND est `ConditioningResult.seedinit`.
+
+Dans la baseline actuelle, cette valeur n'initialise pas directement un LFSR
+par simple decoupage d'octets. Elle sert d'abord de source canonique pour le
+DRBG sponge, qui derive ensuite deux graines separees par domaine :
+
+- `seed_s` pour la suite recurrente `S_n` ;
+- `seed_t` pour la suite recurrente `T_n`.
+
+Le chemin logique documente est donc :
+
+```text
+Raw_Data -> Toeplitz(Raw_Data) -> seedinit -> seed_s / seed_t -> S_n / T_n
+```
+
+Le pont de derivation vers les LFSR est implemente dans
+`software/sponge/seed_derivation.py` a base de SHAKE-256, avec :
+
+- derivation deterministe ;
+- reproductibilite ;
+- separation de domaine entre `SEQ_S` et `SEQ_T` ;
+- rejection explicite de l'etat nul via une reduction dans
+  `[1, 2^degree - 1]`.
+
 ## Intégration avec la couche SRC
 
 Si mon pool d'entropie expose :
