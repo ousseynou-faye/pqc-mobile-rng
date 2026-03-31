@@ -1,86 +1,75 @@
-# Démonstration globale du projet
+# Demonstration globale du projet
 
 ## But
 
-Dans ce document, j'explique comment lancer la démonstration complète du projet
+Ce document explique comment lancer la demonstration complete du projet
 `SRC -> COND -> DRBG -> STATE`.
 
-Le point d'entrée principal est :
+Le point d'entree principal est :
 
 - `demo/run_full_project_demo.py`
 
 ## Objectif
 
-Avec cette démo, je montre de manière structurée :
+Avec cette demo, on montre de maniere structuree :
 
 - l'architecture globale ;
 - la collecte d'entropie brute ;
 - le conditionnement Toeplitz + SHAKE-256 ;
-- le moteur nominal `Module-LWR` ;
-- le moteur secondaire `Multiplexed Sponge` ;
+- le moteur nominal `Multiplexed Sponge` ;
+- le moteur secondaire `Module-LWR` ;
 - le gestionnaire composite et ses politiques ;
-- la machine à états ;
-- la couche `STATE` / TEE simulé ;
-- les vérifications de sécurité essentielles.
+- la machine a etats ;
+- la couche `STATE` / TEE simule ;
+- les verifications de securite essentielles.
 
-## Commande d'exécution
+## Commande d'execution
 
-Depuis la racine `pqc_mobile_rng`, je lance :
+Depuis la racine `pqc_mobile_rng` :
 
 ```powershell
 python demo/run_full_project_demo.py
 ```
 
-Si je veux utiliser explicitement l'interpréteur du virtualenv local :
+Si l'environnement local utilise le venv du depot :
 
 ```powershell
 venv\Scripts\python.exe demo/run_full_project_demo.py
 ```
 
-## Ce que la démo affiche
+## Ce que la demo affiche
 
-La sortie terminal est organisée en sections numérotées.
+La sortie terminal est organisee en sections numerotees. Elle montre notamment :
 
-Je montre notamment :
-
-- les modules associés à chaque couche ;
-- les symboles collectés par `CPUJitterSource` et `SensorEntropySource` ;
-- les rapports de santé simples et les métadonnées de collecte ;
-- les octets bruts exportés par le pool ;
-- la chaîne `raw_data -> toeplitz_output -> Seedinit` ;
-- la génération nominale `Module-LWR` et l'effet d'un `reseed` ;
-- la génération du moteur secondaire `Multiplexed Sponge` ;
+- les modules associes a chaque couche ;
+- les symboles collectes par `CPUJitterSource` et `SensorEntropySource` ;
+- les rapports de sante simples et les metadonnees de collecte ;
+- la chaine `raw_data -> toeplitz_output -> Seedinit` ;
+- la generation nominale `Multiplexed Sponge` et l'effet d'un `reseed` ;
+- la generation du moteur secondaire `Module-LWR` ;
 - le moteur actif du gestionnaire composite selon la politique ;
 - les transitions `UNINITIALIZED -> READY -> NEED_RESEED -> FAIL_STOP -> ZEROIZED` ;
-- un blob scellé, sa restauration, puis un checkpoint complet du DRBG ;
-- la détection d'une altération d'intégrité ;
-- la détection d'un rollback.
+- un blob scelle, sa restauration, puis un checkpoint complet du DRBG ;
+- la detection d'une alteration d'integrite ;
+- la detection d'un rollback.
 
 ## Positionnement des moteurs
 
-Je garde une distinction explicite dans la démo :
+La demo garde une distinction explicite :
 
-- `Module-LWR` est le moteur nominal ;
-- `Multiplexed Sponge` est un moteur secondaire de recherche ;
-- le fallback sponge n'est montré que comme comportement expérimental contrôlé.
+- `Multiplexed Sponge` est le moteur nominal ;
+- `Module-LWR` est un moteur secondaire de recherche ;
+- le fallback LWR n'est montre que comme comportement experimental controle.
 
-## Robustesse de la démo
+## Robustesse de la demo
 
-J'ai isolé les ajouts dans `demo/` et dans cette documentation.
-
-Je n'ai pas modifié :
-
-- les interfaces publiques de `software/entropy/` ;
-- les interfaces publiques de `software/conditioner/` ;
-- les interfaces publiques de `software/pqc_drbg/` ;
-- les interfaces publiques de `software/state_manager/`.
-
-La démo gère les erreurs par section et les rend visibles dans le terminal au
-lieu d'échouer silencieusement.
+Les ajouts restent isoles dans `demo/` et dans cette documentation. La demo
+gere les erreurs par section et les rend visibles dans le terminal au lieu
+d'echouer silencieusement.
 
 ## Suite logique
 
-Pour vérifier que la démo n'introduit pas de régression, je peux ensuite lancer :
+Pour verifier que la demo n'introduit pas de regression :
 
 ```powershell
 python -m pytest tests/test_entropy_layer.py tests/test_conditioner_layer.py tests/test_pqc_drbg_complete.py tests/test_pqc_drbg_state_machine.py tests/test_state_manager.py -q

@@ -28,7 +28,7 @@ def test_api_init_then_generate_returns_bytes_and_ready_state(configure_rng_serv
     assert status["initialized"] is True
     assert status["instantiated"] is True
     assert status["lifecycle_state"] == "ready"
-    assert service.drbg.export_state()["manager_state"]["active_engine"] == "module_lwr"
+    assert service.drbg.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"
 
 
 def test_api_generate_alias_matches_public_contract(configure_rng_service):
@@ -126,7 +126,7 @@ def test_api_restore_round_trip_recovers_valid_service_state(configure_rng_servi
     assert len(restored) == 24
     assert status["initialized"] is True
     assert status["state_available"] is True
-    assert get_rng_service().drbg.export_state()["manager_state"]["active_engine"] == "module_lwr"
+    assert get_rng_service().drbg.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"
 
 
 def test_api_restore_without_checkpoint_raises_administered_error(configure_rng_service):

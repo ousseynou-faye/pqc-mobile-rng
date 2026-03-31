@@ -23,7 +23,7 @@ apply_theme()
 init_session_state()
 
 facade = ProjectFacade()
-hero("Laboratoire DRBG", "Instanciation, generation et comparaison pedagogique de Module-LWR et Multiplexed Sponge.", eyebrow="Etape 3")
+hero("Laboratoire DRBG", "Instanciation, generation et comparaison pedagogique de Multiplexed Sponge et Module-LWR.", eyebrow="Etape 3")
 
 cond = st.session_state.get("last_cond")
 default_seed = cond["result"].seedinit if cond else b"ui-drbg-seed"
@@ -31,24 +31,24 @@ ui_mode = st.session_state.get("ui_mode", "pedagogique")
 
 with st.sidebar:
     st.subheader("Commandes DRBG")
-    engine = st.selectbox("Moteur", ["module_lwr", "multiplexed_sponge"])
+    engine = st.selectbox("Moteur", ["multiplexed_sponge", "module_lwr"])
     length = st.slider("Taille de sortie", 16, 512, 64, 16)
     decimal_limit = st.slider("Apercu decimal", 8, 128, 32, 8)
     personalization = st.text_input("Personalization", value="ui-drbg")
     additional_input = st.text_input("Additional input", value="")
-    st.caption("Le moteur nominal du SDK reste Module-LWR.")
+    st.caption("Le moteur nominal du SDK est Multiplexed Sponge.")
 
 step_grid(
     [
         ("Instancier", "Instanciez un moteur avec une seed issue du conditionneur ou une seed locale de demonstration."),
         ("Generer", "Produisez un bloc d'octets et visualisez-le en hex, binaire et decimal."),
-        ("Comparer", "Mesurez cote a cote Module-LWR et Multiplexed Sponge sur la meme longueur de sortie."),
+        ("Comparer", "Mesurez cote a cote Multiplexed Sponge et Module-LWR sur la meme longueur de sortie."),
     ]
 )
 action_strip(
     [
         ("Action principale", "Instanciez puis generez une sortie RNG lisible en hex, binaire et decimal."),
-        ("Action secondaire", "Comparez Module-LWR et Sponge sur la meme longueur pour la demonstration."),
+        ("Action secondaire", "Comparez Sponge et LWR sur la meme longueur pour la demonstration."),
         ("Action canonique", "Initialisez le SDK pour rappeler le chemin nominal du projet."),
     ]
 )
@@ -77,7 +77,7 @@ if actions[1].button("Comparer LWR / Sponge"):
 
 if actions[2].button("Initialiser le SDK canonique"):
     st.session_state["last_sdk_status"] = facade.instantiate_sdk(personalization=personalization.encode("utf-8"))
-    push_log("DRBG", "Service SDK canonique initialise sur Module-LWR.")
+    push_log("DRBG", "Service SDK canonique initialise sur Multiplexed Sponge.")
 
 instance = st.session_state["drbg_instances"].get(engine)
 if instance is not None:
@@ -109,13 +109,13 @@ with left:
             decimal_rows = output["decimal_rows"][:decimal_limit]
             compact = " | ".join(f"{row['index']}:{row['decimal']}" for row in decimal_rows)
             st.code(compact, language="text")
-            st.dataframe(decimal_rows, use_container_width=True, hide_index=True)
+            st.dataframe(decimal_rows, width="stretch", hide_index=True)
         with tabs[3]:
             hist_rows = output["byte_histogram"]
             if hist_rows:
                 hist_fig = px.bar(hist_rows, x="byte", y="count", title="Distribution locale des octets")
                 hist_fig.update_layout(height=280, margin=dict(l=0, r=0, t=40, b=0))
-                st.plotly_chart(hist_fig, use_container_width=True)
+                st.plotly_chart(hist_fig, width="stretch")
             st.write(output["byte_summary"])
         with st.expander("Etat non sensible du moteur"):
             st.json(output["state"])
@@ -127,14 +127,14 @@ with left:
 
 with right:
     section_header("Comparaison des moteurs", "Comparer les deux moteurs sans changer la baseline nominale du projet.", kicker="Analyse")
-    text_panel("Lecture pedagogique", "Module-LWR est le moteur nominal retenu par la baseline. Multiplexed Sponge est conserve comme moteur secondaire de recherche et de comparaison experimentale.")
+    text_panel("Lecture pedagogique", "Multiplexed Sponge est le moteur nominal retenu par la baseline. Module-LWR est conserve comme moteur secondaire de recherche, de comparaison et de fallback controle.")
     compare = st.session_state.get("last_drbg_compare")
     if compare:
         rows = [{"engine": name, "elapsed_ns": result["elapsed_ns"], "length": result["length"], "preview": preview_bytes(result["data"])} for name, result in compare.items()]
         fig = px.bar(rows, x="engine", y="elapsed_ns", color="engine", title="Comparaison locale par appel")
         fig.update_layout(height=320, margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.plotly_chart(fig, width="stretch")
+        st.dataframe(rows, width="stretch", hide_index=True)
         if ui_mode == "technique":
             compare_stats = [
                 {
@@ -146,10 +146,10 @@ with right:
                 }
                 for name, result in compare.items()
             ]
-            st.dataframe(compare_stats, use_container_width=True, hide_index=True)
+            st.dataframe(compare_stats, width="stretch", hide_index=True)
     else:
         st.info("Utilisez le bouton de comparaison pour voir LWR et Sponge cote a cote.")
 
 with st.expander("Journal des actions"):
     render_logs(st.session_state["ui_logs"])
-note_panel("Limite d'interpretation", "Le moteur `multiplexed_sponge` reste un moteur secondaire de recherche. Le chemin canonique du SDK reste nominalement Module-LWR.", tone="warning")
+note_panel("Limite d'interpretation", "Le moteur `module_lwr` reste un moteur secondaire de recherche et de fallback. Le chemin canonique du SDK reste nominalement `multiplexed_sponge`.", tone="warning")

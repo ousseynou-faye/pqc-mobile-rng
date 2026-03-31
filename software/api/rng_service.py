@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from software.conditioner import ConditioningResult, EntropyMixer
 from software.entropy import CPUJitterSource, EntropyPool, SensorEntropySource
-from software.lfsr import RecurrenceSequence
 from software.pqc_drbg import DRBGPolicy, EngineSelectionMode, PQCCompositeDRBG
-from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter
-from software.sponge import MultiplexedSponge
+from software.pqc_drbg.sponge_core import MultiplexedSpongeAdapter, build_reference_sponge
 from software.state_manager import SealedBlob, SimulatedTEE, StateManager
 
 
@@ -45,7 +42,7 @@ class DRBGConfig:
     personalization: bytes = b""
     policy: DRBGPolicy = field(
         default_factory=lambda: DRBGPolicy(
-            selection_mode=EngineSelectionMode.STRICT_LWR_ONLY,
+            selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY,
         )
     )
 
@@ -70,20 +67,15 @@ class RNGServiceConfig:
     state: StateConfig = field(default_factory=StateConfig)
 
 
-def _build_research_sponge(seed_digest: bytes) -> MultiplexedSponge:
-    """Construit le moteur sponge secondaire sans l'activer dans le flux nominal."""
+def _build_research_sponge(seed_digest: bytes):
+    """
+    Alias de transition vers l'implementation sponge de reference.
 
-    seed_s = (int.from_bytes(seed_digest[:2], "big") % ((1 << 16) - 1)) + 1
-    seed_t = (int.from_bytes(seed_digest[2:4], "big") % ((1 << 16) - 1)) + 1
+    Le nom historique est conserve pour ne pas casser les imports internes
+    existants pendant la bascule d'architecture.
+    """
 
-    seq_s = RecurrenceSequence(degree=16, seed=seed_s)
-    seq_t = RecurrenceSequence(degree=16, seed=seed_t)
-    sponge = MultiplexedSponge(seq_s=seq_s, seq_t=seq_t, l=4, rate=128, capacity=128)
-
-    material = hashlib.shake_256(b"rng-service-sponge:" + seed_digest).digest(32)
-    blocks = [int.from_bytes(material[index:index + 8], "big") for index in range(0, 32, 8)]
-    sponge.absorb_blocks(blocks, block_size=64)
-    return sponge
+    return build_reference_sponge(seed_digest)
 
 
 @dataclass
@@ -131,7 +123,7 @@ class RNGService:
 
     def _build_drbg(self) -> PQCCompositeDRBG:
         return PQCCompositeDRBG(
-            sponge_engine=MultiplexedSpongeAdapter(sponge_factory=_build_research_sponge),
+            sponge_engine=MultiplexedSpongeAdapter(sponge_factory=build_reference_sponge),
             policy=self.config.drbg.policy,
         )
 

@@ -8,7 +8,7 @@ from software.pqc_drbg.state import DRBGLifecycleState
 
 
 class DummySponge:
-    """Je simule ici un moteur sponge minimal pour tester la machine à états."""
+    """Moteur sponge minimal pour tester la machine a etats."""
 
     def __init__(self, seed_digest: bytes):
         self._seed = seed_digest
@@ -18,8 +18,6 @@ class DummySponge:
 
 
 def dummy_sponge_factory(seed_digest: bytes):
-    """Je construis ici un moteur sponge minimal pour mes tests système."""
-
     return DummySponge(seed_digest)
 
 
@@ -36,7 +34,7 @@ def test_instantiate_moves_to_ready():
 
 def test_reseed_limit_moves_to_need_reseed():
     policy = DRBGPolicy(
-        selection_mode=EngineSelectionMode.STRICT_LWR_ONLY,
+        selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY,
         reseed_interval_requests=1,
     )
     drbg = PQCCompositeDRBG(policy=policy)
@@ -52,7 +50,7 @@ def test_reseed_limit_moves_to_need_reseed():
 
 def test_reseed_returns_to_ready():
     policy = DRBGPolicy(
-        selection_mode=EngineSelectionMode.STRICT_LWR_ONLY,
+        selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY,
         reseed_interval_requests=1,
     )
     drbg = PQCCompositeDRBG(policy=policy)
@@ -70,7 +68,7 @@ def test_reseed_returns_to_ready():
 def test_health_failure_moves_to_fail_stop():
     drbg = PQCCompositeDRBG()
     drbg.instantiate(b"seed-4")
-    drbg.lwr_engine.zeroize()
+    drbg.sponge_engine.zeroize()
 
     with pytest.raises(FailStopError):
         drbg.generate(8)
@@ -113,9 +111,9 @@ def test_reset_from_fail_stop_returns_to_uninitialized():
     assert drbg.state.lifecycle_state == DRBGLifecycleState.UNINITIALIZED
 
 
-def test_force_sponge_research_starts_in_ready():
+def test_force_lwr_research_starts_in_ready():
     sponge = MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory)
-    policy = DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_SPONGE_RESEARCH)
+    policy = DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH)
     drbg = PQCCompositeDRBG(sponge_engine=sponge, policy=policy)
 
     drbg.instantiate(b"seed-8")

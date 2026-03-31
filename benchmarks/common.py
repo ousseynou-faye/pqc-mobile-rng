@@ -27,13 +27,13 @@ def collect_environment_info() -> dict[str, Any]:
 
 
 def build_composite_drbg(engine_name: str) -> PQCCompositeDRBG:
-    if engine_name == "module_lwr":
+    if engine_name == "multiplexed_sponge":
         return PQCCompositeDRBG()
 
-    if engine_name == "multiplexed_sponge":
+    if engine_name == "module_lwr":
         return PQCCompositeDRBG(
             sponge_engine=MultiplexedSpongeAdapter(sponge_factory=_build_research_sponge),
-            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_SPONGE_RESEARCH),
+            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
         )
 
     raise ValueError(f"Moteur inconnu: {engine_name}")

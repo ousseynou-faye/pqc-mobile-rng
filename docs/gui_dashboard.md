@@ -65,11 +65,11 @@ L'interface applique plusieurs garde-fous:
 - les blobs d'etat sont resumes
 - les seeds completes ne sont pas exposees par defaut
 - les etats internes prives restent masques
-- `multiplexed_sponge` est clairement marque comme moteur secondaire de recherche
+- `module_lwr` est clairement marque comme moteur secondaire de recherche
 
 ## Conseils de demonstration
 
-- commencez par rappeler que le moteur nominal est `Module-LWR`
+- commencez par rappeler que le moteur nominal est `Multiplexed Sponge`
 - utilisez `SRC` puis `COND` pour montrer la construction de `Seedinit`
 - utilisez `DRBG` pour comparer les vues hex, binaire et decimale
 - utilisez `STATE` pour expliquer checkpoint, restore et zeroize

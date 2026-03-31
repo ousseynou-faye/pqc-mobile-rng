@@ -45,21 +45,21 @@ fig.add_trace(
     )
 )
 fig.update_layout(height=240, showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 step_grid(
     [
         ("SRC", "La couche collecte des symboles bruts depuis CPU jitter et une source capteur simulee."),
         ("COND", "La couche conditionne ce materiau par Toeplitz puis SHAKE-256 avant toute instanciation."),
-        ("DRBG", "Le moteur nominal est Module-LWR. Multiplexed Sponge reste disponible pour l'exploration de recherche."),
+        ("DRBG", "Le moteur nominal est Multiplexed Sponge. Module-LWR reste disponible pour la recherche et le fallback controle."),
         ("STATE", "La couche gere les transitions logiques, le checkpoint, la restauration et l'effacement."),
     ]
 )
 
 left, right = st.columns([1.2, 1.0], gap="large")
 with left:
-    text_panel("Ce qui est implemente", "SRC collecte l'entropie locale, COND applique Toeplitz + SHAKE-256, DRBG utilise Module-LWR comme chemin nominal, et STATE gere la machine a etats avec persistence simulee.")
-    text_panel("Ce qui est experimental", "Multiplexed Sponge reste un moteur secondaire de recherche. La trajectoire mobile ajoute une frontiere FFI de transition et un protocole de profilage honnete.")
+    text_panel("Ce qui est implemente", "SRC collecte l'entropie locale, COND applique Toeplitz + SHAKE-256, DRBG utilise Multiplexed Sponge comme chemin nominal, et STATE gere la machine a etats avec persistence simulee.")
+    text_panel("Ce qui est experimental", "Module-LWR reste un moteur secondaire de recherche et de fallback controle. La trajectoire mobile ajoute une frontiere FFI de transition et un protocole de profilage honnete.")
     text_panel("Ce qui reste futur", "La NTT active, les drivers Android/Linux reels, le wrapper JNI/NDK et la validation sur cible mobile restent hors de la baseline executable actuelle.")
 with right:
     note_panel("Important", "Cette interface de demonstration ne doit pas etre lue comme une preuve d'integration mobile reelle.", tone="warning")

@@ -87,7 +87,7 @@ with col1:
     if src["symbol_histogram"]:
         fig = px.bar(src["symbol_histogram"], x="symbol", y="count", title="Histogramme des symboles")
         fig.update_layout(height=320, margin=dict(l=0, r=0, t=40, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 with col2:
     section_header("Aide a l'interpretation", "Messages utiles, prochaine etape et journal de collecte.", kicker="Accompagnement")

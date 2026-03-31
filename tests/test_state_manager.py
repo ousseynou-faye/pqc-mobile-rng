@@ -33,7 +33,7 @@ def build_manager(tmp_path: Path) -> StateManager:
 
 def test_seal_unseal_round_trip(tmp_path: Path):
     manager = build_manager(tmp_path)
-    payload = {"counter": 7, "active_engine": "module_lwr"}
+    payload = {"counter": 7, "active_engine": "multiplexed_sponge"}
 
     manager.seal_payload(payload, payload_metadata={"purpose": "round_trip"})
     restored = manager.unseal_payload(payload_metadata={"purpose": "round_trip"})
@@ -43,7 +43,7 @@ def test_seal_unseal_round_trip(tmp_path: Path):
 
 def test_integrity_tampering_is_detected(tmp_path: Path):
     manager = build_manager(tmp_path)
-    payload = {"counter": 8, "active_engine": "module_lwr"}
+    payload = {"counter": 8, "active_engine": "multiplexed_sponge"}
 
     blob = manager.seal_payload(payload, payload_metadata={"purpose": "tamper"})
     blob_path = manager.tee._blob_path(blob.blob_id)
@@ -71,7 +71,7 @@ def test_checkpoint_and_restore_drbg(tmp_path: Path):
     sponge = MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory)
     drbg = PQCCompositeDRBG(
         sponge_engine=sponge,
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     drbg.instantiate(b"seed-state-test")
     _ = drbg.generate(16)
@@ -81,9 +81,9 @@ def test_checkpoint_and_restore_drbg(tmp_path: Path):
 
     restored = PQCCompositeDRBG(
         sponge_engine=MultiplexedSpongeAdapter(sponge_factory=dummy_sponge_factory),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     payload = manager.restore_drbg(restored, payload_metadata={"purpose": "checkpoint"})
 
-    assert payload["manager_state"]["active_engine"] == "module_lwr"
-    assert restored.export_state()["manager_state"]["active_engine"] == "module_lwr"
+    assert payload["manager_state"]["active_engine"] == "multiplexed_sponge"
+    assert restored.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"

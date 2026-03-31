@@ -14,8 +14,8 @@ experimentale et une couche de benchmark logiciel.
 
 - statut : prototype academique / experimental
 - interface principale actuelle : SDK Python local
-- moteur nominal : Module-LWR
-- moteur secondaire : Multiplexed Sponge
+- moteur nominal : Multiplexed Sponge
+- moteur secondaire : Module-LWR
 - conditionneur officiel : Toeplitz + SHAKE-256
 - NTT : optimisation future, non active dans la baseline executable actuelle
 
@@ -24,7 +24,7 @@ experimentale et une couche de benchmark logiciel.
 ```text
 SRC : collecte d'entropie
   -> COND : Toeplitz + SHAKE-256
-  -> DRBG : Module-LWR (nominal) / Multiplexed Sponge (secondaire)
+  -> DRBG : Multiplexed Sponge (nominal) / Module-LWR (secondaire)
   -> STATE : machine a etats + persistance protegee simulee
 ```
 
@@ -143,7 +143,7 @@ venv\Scripts\python.exe benchmarks\run_all_benchmarks.py
 
 ## Avertissements methodologiques
 
-- ne pas presenter `Multiplexed Sponge` comme moteur nominal ;
+- ne pas presenter `Module-LWR` comme moteur nominal ;
 - ne pas presenter la NTT comme deja integree a la baseline executable ;
 - ne pas presenter les resultats AMD64 locaux comme des resultats smartphone ARM
   sans execution sur cible reelle ;

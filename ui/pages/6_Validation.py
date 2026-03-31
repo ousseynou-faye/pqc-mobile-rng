@@ -51,10 +51,10 @@ if validation:
     section_header("Resultats de validation", "Lecture rapide des checks fonctionnels et statistiques locaux.", kicker="Resultats")
     note_panel("Lecture recommandee", "Considerez ces checks comme des smoke tests de demonstration. Ils ne remplacent pas les campagnes completes du projet.", tone="info")
     st.subheader("Resultats des smoke tests")
-    st.dataframe(validation["results"], use_container_width=True, hide_index=True)
+    st.dataframe(validation["results"], width="stretch", hide_index=True)
     fig = px.bar(validation["results"], x="name", y="duration_ms", color="success", title="Duree des checks")
     fig.update_layout(height=320, margin=dict(l=0, r=0, t=40, b=0))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     for warning in validation["warnings"]:
         st.warning(warning)
 
@@ -63,5 +63,5 @@ if campaign:
     section_header("Comparaison experimentale", "Resume de la campagne comparative courte.", kicker="Comparaison")
     st.subheader("Comparaison experimentale smoke")
     rows = [{"engine": name, **values} for name, values in campaign["engines"].items()]
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
     text_panel("Limite methodologique", "Ces indicateurs restent experimentaux et ne constituent pas une validation cryptographique formelle.")

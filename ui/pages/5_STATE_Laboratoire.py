@@ -42,8 +42,11 @@ action_strip(
 section_header("Zone d'action", "Operations principales de la couche STATE.", kicker="Actions")
 actions = st.columns(4)
 if actions[0].button("Sauvegarder l'etat", type="primary"):
-    st.session_state["last_state_blob"] = facade.sdk_checkpoint()
-    push_log("STATE", "Checkpoint d'etat effectue via la couche canonique.")
+    try:
+        st.session_state["last_state_blob"] = facade.sdk_checkpoint()
+        push_log("STATE", "Checkpoint d'etat effectue via la couche canonique.")
+    except Exception as exc:
+        st.warning(str(exc))
 if actions[1].button("Restaurer l'etat"):
     try:
         st.session_state["last_state_restore"] = facade.sdk_restore()
@@ -69,7 +72,7 @@ with left:
     history = details["drbg_state"].get("manager_state", {}).get("transition_history", []) if isinstance(details["drbg_state"], dict) else []
     if history:
         st.subheader("Transitions")
-        st.dataframe(history, use_container_width=True, hide_index=True)
+        st.dataframe(history, width="stretch", hide_index=True)
 
 with right:
     section_header("Operations sensibles", "Lecture prudente des checkpoint, restore et zeroize.", kicker="Securite")

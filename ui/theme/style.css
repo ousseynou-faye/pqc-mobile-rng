@@ -98,7 +98,7 @@ section[data-testid="stSidebarNav"] {
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px);
+  /* backdrop-filter: blur(10px); */
 }
 
 .ui-card {

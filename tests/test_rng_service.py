@@ -55,7 +55,7 @@ def test_instantiate_rng_initializes_drbg():
     drbg = service.instantiate_rng()
 
     assert drbg.export_state()["manager_state"]["initialized"] is True
-    assert drbg.export_state()["manager_state"]["active_engine"] == "module_lwr"
+    assert drbg.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"
 
 
 def test_generate_bytes_returns_requested_length():
@@ -84,7 +84,7 @@ def test_checkpoint_and_restore_round_trip():
     restored = service.restore_state()
 
     assert blob.blob_id == "service-test-blob"
-    assert restored["manager_state"]["active_engine"] == "module_lwr"
+    assert restored["manager_state"]["active_engine"] == "multiplexed_sponge"
     assert service.generate_bytes(24)
 
 
@@ -122,9 +122,9 @@ def test_wrappers_use_canonical_service():
 
     assert service is get_rng_service()
     assert len(seed.seedinit) == 32
-    assert drbg.export_state()["manager_state"]["active_engine"] == "module_lwr"
+    assert drbg.export_state()["manager_state"]["active_engine"] == "multiplexed_sponge"
     assert len(output) == 16
     assert health["instantiated"] is True
     assert blob.blob_id == "wrapper-blob"
-    assert restored["manager_state"]["active_engine"] == "module_lwr"
+    assert restored["manager_state"]["active_engine"] == "multiplexed_sponge"
     assert len(reseed_result.seedinit) == 32

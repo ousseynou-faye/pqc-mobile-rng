@@ -38,17 +38,17 @@ CAMPAIGN_PRESETS: dict[str, CampaignConfig] = {
 
 
 def _build_drbg(engine_name: str) -> PQCCompositeDRBG:
-    if engine_name == "module_lwr":
+    if engine_name == "multiplexed_sponge":
         drbg = PQCCompositeDRBG()
-        drbg.instantiate(b"stage6-module-lwr-seed")
+        drbg.instantiate(b"stage6-multiplexed-sponge-seed")
         return drbg
 
-    if engine_name == "multiplexed_sponge":
+    if engine_name == "module_lwr":
         drbg = PQCCompositeDRBG(
             sponge_engine=MultiplexedSpongeAdapter(sponge_factory=_build_research_sponge),
-            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_SPONGE_RESEARCH),
+            policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
         )
-        drbg.instantiate(b"stage6-multiplexed-sponge-seed")
+        drbg.instantiate(b"stage6-module-lwr-seed")
         return drbg
 
     raise ValueError(f"Moteur inconnu: {engine_name}")
@@ -119,7 +119,7 @@ def _write_csv_summary(report: dict[str, Any], output_path: str | Path) -> Path:
 def run_comparative_campaign(
     config: CampaignConfig,
     *,
-    engines: tuple[str, ...] = ("module_lwr", "multiplexed_sponge"),
+    engines: tuple[str, ...] = ("multiplexed_sponge", "module_lwr"),
 ) -> dict[str, Any]:
     """Lance une campagne comparative reproductible sur des flux DRBG."""
 

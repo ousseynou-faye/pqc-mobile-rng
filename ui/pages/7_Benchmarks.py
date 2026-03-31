@@ -58,8 +58,8 @@ for engine_name, engine_report in performance["engines"].items():
 
 fig = px.bar(rows, x="metric", y="mean_ns", color="engine", barmode="group", title="Comparaison locale des temps moyens")
 fig.update_layout(height=360, margin=dict(l=0, r=0, t=40, b=0))
-st.plotly_chart(fig, use_container_width=True)
-st.dataframe(rows, use_container_width=True, hide_index=True)
+st.plotly_chart(fig, width="stretch")
+st.dataframe(rows, width="stretch", hide_index=True)
 
 mobile = bench["mobile_profile"]["metadata"]
 section_header("Profilage mobile de trajectoire", "Ce panneau rappelle si l'execution a reellement eu lieu sur ARM.", kicker="Contexte")

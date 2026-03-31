@@ -50,7 +50,7 @@ class ProjectFacade:
         return [
             {"name": "SRC", "status": "implemented", "title": "Collecte d'entropie", "body": "CPU jitter et source capteur simulee alimentent un pool prudent d'entropie brute."},
             {"name": "COND", "status": "implemented", "title": "Conditionnement", "body": "Le chemin officiel applique Toeplitz puis SHAKE-256 avant toute instanciation du DRBG."},
-            {"name": "DRBG", "status": "implemented", "title": "Generation post-quantique", "body": "Module-LWR est nominal. Multiplexed Sponge reste un moteur secondaire de recherche."},
+            {"name": "DRBG", "status": "implemented", "title": "Generation post-quantique", "body": "Multiplexed Sponge est nominal. Module-LWR reste un moteur secondaire experimental et de fallback controle."},
             {"name": "STATE", "status": "implemented", "title": "Etat et persistence", "body": "Machine a etats explicite, scellement simule et restauration administree du prototype."},
             {"name": "Mobile", "status": "experimental", "title": "Trajectoire mobile", "body": "Le depot expose une frontiere FFI de transition et un protocole de profilage, sans integration Android reelle."},
             {"name": "NTT", "status": "future", "title": "Optimisation future", "body": "La NTT est documentee comme piste d'optimisation, pas comme composant actif de la baseline executable."},
@@ -74,7 +74,7 @@ class ProjectFacade:
         return {
             "project_title": "Deploiement d'un RNG Mobile Post-Quantique",
             "pipeline": "SRC -> COND -> DRBG -> STATE",
-            "engines": ["module_lwr", "multiplexed_sponge"],
+            "engines": ["multiplexed_sponge", "module_lwr"],
             "conditioner": "Toeplitz + SHAKE-256",
             "prototype_status": "Prototype academique local / SDK Python",
             "sdk_status": status,
@@ -161,7 +161,7 @@ class ProjectFacade:
 
     def compare_engines(self, *, length: int, seed_material: bytes, additional_input: bytes = b"") -> dict[str, Any]:
         comparison: dict[str, Any] = {}
-        for engine_name in ("module_lwr", "multiplexed_sponge"):
+        for engine_name in ("multiplexed_sponge", "module_lwr"):
             drbg = self.instantiate_lab_engine(engine_name, seed_material=seed_material)
             comparison[engine_name] = self.generate_with_engine(drbg, length=length, additional_input=additional_input)
         return comparison

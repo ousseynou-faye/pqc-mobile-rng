@@ -1,0 +1,497 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-03-29T21:02:58.161287+00:00",
+    "context": "comparative_drbg_campaign",
+    "mode": "smoke",
+    "parameters": {
+      "mode": "smoke",
+      "n_bits": 1024,
+      "repetitions": 2,
+      "alpha": 0.01,
+      "block_size": 64,
+      "max_period": 64,
+      "output_dir": "analysis/reports",
+      "export_markdown": true,
+      "export_csv": true
+    },
+    "implemented_scope": [
+      "Validation experimentale de la source d'entropie, du conditionnement et des sorties DRBG.",
+      "Health checks simples et estimation prudente de min-entropie par Most Common Value.",
+      "Campagnes statistiques comparatives sur Module-LWR et Multiplexed Sponge."
+    ],
+    "nist_inspired_scope": [
+      "Architecture SRC -> COND -> DRBG inspiree des bonnes pratiques de separation des couches.",
+      "Health checks inspires de SP 800-90B pour repetition count et adaptive proportion.",
+      "Tests statistiques inspires de SP 800-22 utilises comme indicateurs experimentaux."
+    ],
+    "non_compliance_scope": [
+      "Ce rapport ne revendique aucune conformite formelle a SP 800-90A, SP 800-90B, SP 800-22, FIPS ou CMVP.",
+      "Les tests statistiques presentes ici ne constituent pas une preuve cryptographique.",
+      "Module-LWR et Multiplexed Sponge ne sont pas presentes comme des DRBG NIST approuves."
+    ],
+    "labels": [
+      "validation experimentale",
+      "inspire par SP 800-22",
+      "inspire par SP 800-90B",
+      "non conforme NIST"
+    ]
+  },
+  "engines": {
+    "multiplexed_sponge": {
+      "engine_name": "multiplexed_sponge",
+      "n_bits": 1024,
+      "repetitions": 2,
+      "runs": [
+        {
+          "repetition": 0,
+          "n_bits": 1024,
+          "bit_balance": {
+            "length": 1024,
+            "count_0": 489,
+            "count_1": 535,
+            "frequency_0": 0.4775390625,
+            "frequency_1": 0.5224609375,
+            "bias": 0.0224609375
+          },
+          "suite": {
+            "sample_length": 1024,
+            "alpha": 0.01,
+            "block_size": 64,
+            "tests": {
+              "monobit_frequency": {
+                "test_name": "monobit_frequency",
+                "length": 1024,
+                "statistic": 1.4375,
+                "p_value": 0.15057597282484683,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Biais empirique observe: 0.022461"
+                ]
+              },
+              "block_frequency": {
+                "test_name": "block_frequency",
+                "length": 1024,
+                "statistic": 14.1875,
+                "p_value": 0.5847477281696958,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Nombre de blocs analyses: 16",
+                  "Taille de bloc: 64",
+                  "Proportion moyenne de 1: 0.522461"
+                ],
+                "block_size": 64,
+                "n_blocks": 16
+              },
+              "runs": {
+                "test_name": "runs",
+                "length": 1024,
+                "statistic": 523,
+                "p_value": 0.4510918872015639,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Longest run observe: 9",
+                  "Nombre total de runs observes: 523"
+                ]
+              },
+              "linear_complexity_metric": {
+                "test_name": "linear_complexity_metric",
+                "length": 1024,
+                "statistic": 513,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Il ne s'agit pas ici d'une implementation complete du test NIST de complexite lineaire."
+                ],
+                "normalized_linear_complexity": 0.5009765625
+              },
+              "observed_periodicity_metric": {
+                "test_name": "observed_periodicity_metric",
+                "length": 1024,
+                "statistic": null,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Une periode observee courte sur une fenetre finie est un signal de vigilance, pas une preuve generale."
+                ],
+                "checked_prefix_length": 1023
+              }
+            },
+            "summary": {
+              "passed_tests": 5,
+              "total_tests": 5,
+              "success_ratio": 1.0
+            },
+            "notes": [
+              "Batterie statistique experimentale inspiree de SP 800-22.",
+              "Les resultats ne doivent pas etre interpretes comme une preuve cryptographique ni comme une conformite NIST."
+            ]
+          }
+        },
+        {
+          "repetition": 1,
+          "n_bits": 1024,
+          "bit_balance": {
+            "length": 1024,
+            "count_0": 521,
+            "count_1": 503,
+            "frequency_0": 0.5087890625,
+            "frequency_1": 0.4912109375,
+            "bias": -0.0087890625
+          },
+          "suite": {
+            "sample_length": 1024,
+            "alpha": 0.01,
+            "block_size": 64,
+            "tests": {
+              "monobit_frequency": {
+                "test_name": "monobit_frequency",
+                "length": 1024,
+                "statistic": 0.5625,
+                "p_value": 0.5737754036327304,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Biais empirique observe: -0.008789"
+                ]
+              },
+              "block_frequency": {
+                "test_name": "block_frequency",
+                "length": 1024,
+                "statistic": 13.1875,
+                "p_value": 0.6590020963204064,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Nombre de blocs analyses: 16",
+                  "Taille de bloc: 64",
+                  "Proportion moyenne de 1: 0.491211"
+                ],
+                "block_size": 64,
+                "n_blocks": 16
+              },
+              "runs": {
+                "test_name": "runs",
+                "length": 1024,
+                "statistic": 514,
+                "p_value": 0.8926677043795586,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Longest run observe: 10",
+                  "Nombre total de runs observes: 514"
+                ]
+              },
+              "linear_complexity_metric": {
+                "test_name": "linear_complexity_metric",
+                "length": 1024,
+                "statistic": 513,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Il ne s'agit pas ici d'une implementation complete du test NIST de complexite lineaire."
+                ],
+                "normalized_linear_complexity": 0.5009765625
+              },
+              "observed_periodicity_metric": {
+                "test_name": "observed_periodicity_metric",
+                "length": 1024,
+                "statistic": null,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Une periode observee courte sur une fenetre finie est un signal de vigilance, pas une preuve generale."
+                ],
+                "checked_prefix_length": 1023
+              }
+            },
+            "summary": {
+              "passed_tests": 5,
+              "total_tests": 5,
+              "success_ratio": 1.0
+            },
+            "notes": [
+              "Batterie statistique experimentale inspiree de SP 800-22.",
+              "Les resultats ne doivent pas etre interpretes comme une preuve cryptographique ni comme une conformite NIST."
+            ]
+          }
+        }
+      ],
+      "aggregates": {
+        "bias": {
+          "mean": 0.0068359375,
+          "min": -0.0087890625,
+          "max": 0.0224609375
+        },
+        "suite_success_ratio": {
+          "mean": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "runs_statistic": {
+          "mean": 518.5,
+          "min": 514,
+          "max": 523
+        },
+        "normalized_linear_complexity": {
+          "mean": 0.5009765625,
+          "min": 0.5009765625,
+          "max": 0.5009765625
+        },
+        "per_test_success_rate": {
+          "monobit_frequency": 1.0,
+          "block_frequency": 1.0,
+          "runs": 1.0,
+          "linear_complexity_metric": 1.0,
+          "observed_periodicity_metric": 1.0
+        }
+      }
+    },
+    "module_lwr": {
+      "engine_name": "module_lwr",
+      "n_bits": 1024,
+      "repetitions": 2,
+      "runs": [
+        {
+          "repetition": 0,
+          "n_bits": 1024,
+          "bit_balance": {
+            "length": 1024,
+            "count_0": 481,
+            "count_1": 543,
+            "frequency_0": 0.4697265625,
+            "frequency_1": 0.5302734375,
+            "bias": 0.0302734375
+          },
+          "suite": {
+            "sample_length": 1024,
+            "alpha": 0.01,
+            "block_size": 64,
+            "tests": {
+              "monobit_frequency": {
+                "test_name": "monobit_frequency",
+                "length": 1024,
+                "statistic": 1.9375,
+                "p_value": 0.05268425337828292,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Biais empirique observe: 0.030273"
+                ]
+              },
+              "block_frequency": {
+                "test_name": "block_frequency",
+                "length": 1024,
+                "statistic": 20.1875,
+                "p_value": 0.2118942142708284,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Nombre de blocs analyses: 16",
+                  "Taille de bloc: 64",
+                  "Proportion moyenne de 1: 0.530273"
+                ],
+                "block_size": 64,
+                "n_blocks": 16
+              },
+              "runs": {
+                "test_name": "runs",
+                "length": 1024,
+                "statistic": 497,
+                "p_value": 0.41038957893370503,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Longest run observe: 10",
+                  "Nombre total de runs observes: 497"
+                ]
+              },
+              "linear_complexity_metric": {
+                "test_name": "linear_complexity_metric",
+                "length": 1024,
+                "statistic": 511,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Il ne s'agit pas ici d'une implementation complete du test NIST de complexite lineaire."
+                ],
+                "normalized_linear_complexity": 0.4990234375
+              },
+              "observed_periodicity_metric": {
+                "test_name": "observed_periodicity_metric",
+                "length": 1024,
+                "statistic": null,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Une periode observee courte sur une fenetre finie est un signal de vigilance, pas une preuve generale."
+                ],
+                "checked_prefix_length": 1023
+              }
+            },
+            "summary": {
+              "passed_tests": 5,
+              "total_tests": 5,
+              "success_ratio": 1.0
+            },
+            "notes": [
+              "Batterie statistique experimentale inspiree de SP 800-22.",
+              "Les resultats ne doivent pas etre interpretes comme une preuve cryptographique ni comme une conformite NIST."
+            ]
+          }
+        },
+        {
+          "repetition": 1,
+          "n_bits": 1024,
+          "bit_balance": {
+            "length": 1024,
+            "count_0": 543,
+            "count_1": 481,
+            "frequency_0": 0.5302734375,
+            "frequency_1": 0.4697265625,
+            "bias": -0.0302734375
+          },
+          "suite": {
+            "sample_length": 1024,
+            "alpha": 0.01,
+            "block_size": 64,
+            "tests": {
+              "monobit_frequency": {
+                "test_name": "monobit_frequency",
+                "length": 1024,
+                "statistic": 1.9375,
+                "p_value": 0.05268425337828292,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Biais empirique observe: -0.030273"
+                ]
+              },
+              "block_frequency": {
+                "test_name": "block_frequency",
+                "length": 1024,
+                "statistic": 16.1875,
+                "p_value": 0.4399530165630656,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Nombre de blocs analyses: 16",
+                  "Taille de bloc: 64",
+                  "Proportion moyenne de 1: 0.469727"
+                ],
+                "block_size": 64,
+                "n_blocks": 16
+              },
+              "runs": {
+                "test_name": "runs",
+                "length": 1024,
+                "statistic": 523,
+                "p_value": 0.41922253946107096,
+                "passed": true,
+                "threshold": 0.01,
+                "notes": [
+                  "Test statistique inspire de SP 800-22, utilise comme indicateur experimental.",
+                  "Longest run observe: 13",
+                  "Nombre total de runs observes: 523"
+                ]
+              },
+              "linear_complexity_metric": {
+                "test_name": "linear_complexity_metric",
+                "length": 1024,
+                "statistic": 513,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Il ne s'agit pas ici d'une implementation complete du test NIST de complexite lineaire."
+                ],
+                "normalized_linear_complexity": 0.5009765625
+              },
+              "observed_periodicity_metric": {
+                "test_name": "observed_periodicity_metric",
+                "length": 1024,
+                "statistic": null,
+                "p_value": null,
+                "passed": true,
+                "threshold": null,
+                "notes": [
+                  "Metrique descriptive experimentale.",
+                  "Une periode observee courte sur une fenetre finie est un signal de vigilance, pas une preuve generale."
+                ],
+                "checked_prefix_length": 1023
+              }
+            },
+            "summary": {
+              "passed_tests": 5,
+              "total_tests": 5,
+              "success_ratio": 1.0
+            },
+            "notes": [
+              "Batterie statistique experimentale inspiree de SP 800-22.",
+              "Les resultats ne doivent pas etre interpretes comme une preuve cryptographique ni comme une conformite NIST."
+            ]
+          }
+        }
+      ],
+      "aggregates": {
+        "bias": {
+          "mean": 0.0,
+          "min": -0.0302734375,
+          "max": 0.0302734375
+        },
+        "suite_success_ratio": {
+          "mean": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "runs_statistic": {
+          "mean": 510,
+          "min": 497,
+          "max": 523
+        },
+        "normalized_linear_complexity": {
+          "mean": 0.5,
+          "min": 0.4990234375,
+          "max": 0.5009765625
+        },
+        "per_test_success_rate": {
+          "monobit_frequency": 1.0,
+          "block_frequency": 1.0,
+          "runs": 1.0,
+          "linear_complexity_metric": 1.0,
+          "observed_periodicity_metric": 1.0
+        }
+      }
+    }
+  },
+  "comparison": {
+    "multiplexed_sponge": "taux moyen de succes 1.000, biais moyen 0.006836, complexite lineaire normalisee moyenne 0.500977",
+    "module_lwr": "taux moyen de succes 1.000, biais moyen 0.000000, complexite lineaire normalisee moyenne 0.500000"
+  }
+}

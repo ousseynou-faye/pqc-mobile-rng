@@ -161,7 +161,7 @@ Je montre aussi quels modules Python portent chaque responsabilité.
     )
     afficher_texte(
         """
-Je considère Module-LWR comme le moteur nominal du DRBG.
+Je considere Multiplexed Sponge comme le moteur nominal du DRBG.
 Je présente le Multiplexed Sponge comme moteur secondaire de recherche.
         """
     )
@@ -260,11 +260,11 @@ Je passe par une extraction structurée, puis par une dérivation finale stable.
 
 
 def section_drbg_module_lwr(seedinit: bytes) -> dict[str, object]:
-    """Je démontre ici le moteur nominal Module-LWR."""
+    """Je demontre ici le moteur secondaire Module-LWR."""
 
     afficher_texte(
         """
-Je lance ici le moteur nominal Module-LWR.
+Je lance ici le moteur secondaire Module-LWR.
 Je montre une instanciation, une génération, un reseed, puis l'export d'état non sensible.
         """
     )
@@ -336,14 +336,14 @@ Je compare ici les trois usages principaux du gestionnaire composite :
 
     strict = PQCCompositeDRBG(
         sponge_engine=construire_moteur_sponge(),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     strict.instantiate(seedinit)
     strict_output = strict.generate(24)
 
     recherche = PQCCompositeDRBG(
         sponge_engine=construire_moteur_sponge(),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_SPONGE_RESEARCH),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
     )
     recherche.instantiate(seedinit)
     recherche_output = recherche.generate(24)
@@ -351,7 +351,7 @@ Je compare ici les trois usages principaux du gestionnaire composite :
     fallback = PQCCompositeDRBG(
         sponge_engine=construire_moteur_sponge(),
         policy=DRBGPolicy(
-            selection_mode=EngineSelectionMode.ALLOW_EXPERIMENTAL_SPONGE_FALLBACK,
+            selection_mode=EngineSelectionMode.ALLOW_EXPERIMENTAL_LWR_FALLBACK,
             allow_fallback_on_unavailability_only=True,
         ),
     )
@@ -455,7 +455,7 @@ Je scelle un payload simple, puis je restaure un état complet de DRBG composite
     manager_simple = StateManager(tee=tee, blob_id="demo_payload")
 
     payload = {
-        "active_engine": "module_lwr",
+        "active_engine": "multiplexed_sponge",
         "counter": 1,
         "seedinit_prefix": seedinit[:8].hex(),
     }
@@ -475,7 +475,7 @@ Je scelle un payload simple, puis je restaure un état complet de DRBG composite
     manager_drbg = StateManager(tee=tee, blob_id="demo_drbg")
     drbg = PQCCompositeDRBG(
         sponge_engine=construire_moteur_sponge(),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     drbg.instantiate(seedinit)
     _ = drbg.generate(16)
@@ -483,7 +483,7 @@ Je scelle un payload simple, puis je restaure un état complet de DRBG composite
 
     restaure_drbg = PQCCompositeDRBG(
         sponge_engine=construire_moteur_sponge(),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     payload_restaure = manager_drbg.restore_drbg(
         restaure_drbg,
@@ -497,7 +497,7 @@ Je scelle un payload simple, puis je restaure un état complet de DRBG composite
         "État restauré côté DRBG",
         restaure_drbg.export_state()["manager_state"]["lifecycle_state"],
     )
-    afficher_ligne("Intégrité simple", payload_restaure["manager_state"]["active_engine"] == "module_lwr")
+    afficher_ligne("Intégrité simple", payload_restaure["manager_state"]["active_engine"] == "multiplexed_sponge")
 
     return {
         "sealed_blob": contenu_blob,

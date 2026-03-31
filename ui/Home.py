@@ -47,8 +47,8 @@ hero(
 )
 metric_strip([
     ("Pipeline", overview["pipeline"]),
-    ("Moteur nominal", "Module-LWR"),
-    ("Moteur secondaire", "Multiplexed Sponge"),
+    ("Moteur nominal", "Multiplexed Sponge"),
+    ("Moteur secondaire", "Module-LWR"),
     ("Conditionneur", overview["conditioner"]),
     ("Statut", overview["prototype_status"]),
 ])
@@ -80,7 +80,7 @@ with col_b:
         )
     )
     fig.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     status = overview["sdk_status"]
     info_card("Etat global du SDK", f"Initialise: {status['initialized']} | Etat logique: {status['lifecycle_state'] or 'absent'} | Derniere operation: {status['last_operation'] or 'aucune'}", badges=[(status["health_status"], "implemented" if status["health_status"] == "ok" else "experimental")])
 

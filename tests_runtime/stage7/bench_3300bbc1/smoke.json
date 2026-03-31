@@ -1,0 +1,193 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-03-30T16:02:41.415132+00:00",
+    "benchmark_kind": "software_performance",
+    "config": {
+      "mode": "smoke",
+      "repetitions": 3,
+      "warmup_rounds": 1,
+      "output_sizes": [
+        32,
+        256
+      ],
+      "output_dir": "benchmarks/results",
+      "include_csv": true,
+      "include_markdown": true
+    },
+    "environment": {
+      "machine": "AMD64",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "system": "Windows",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python_version": "3.14.2 (tags/v3.14.2:df79316, Dec  5 2025, 17:18:21) [MSC v.1944 64 bit (AMD64)]",
+      "is_arm": false,
+      "environment_type": "local_python_benchmark"
+    },
+    "methodology_warnings": [
+      "Benchmark logiciel Python local.",
+      "Les resultats ne sont pas directement generalisables a un smartphone sans execution sur cible reelle.",
+      "Les mesures memoire sont des estimations via tracemalloc, pas une mesure systeme mobile complete.",
+      "Le nom performance_arm.py ne signifie pas que les chiffres proviennent d'une cible ARM reelle."
+    ]
+  },
+  "engines": {
+    "module_lwr": {
+      "engine_name": "module_lwr",
+      "instantiate": {
+        "timing": {
+          "count": 3,
+          "mean_ns": 111266.66666666667,
+          "median_ns": 109000,
+          "min_ns": 106100,
+          "max_ns": 118700,
+          "stdev_ns": 6598.737252939636
+        },
+        "memory": {
+          "mean_peak_bytes": 8323.0,
+          "min_peak_bytes": 8307,
+          "max_peak_bytes": 8339
+        }
+      },
+      "reseed": {
+        "timing": {
+          "count": 3,
+          "mean_ns": 115600.0,
+          "median_ns": 112600,
+          "min_ns": 111000,
+          "max_ns": 123200,
+          "stdev_ns": 6630.233781700311
+        },
+        "memory": {
+          "mean_peak_bytes": 7809.0,
+          "min_peak_bytes": 7809,
+          "max_peak_bytes": 7809
+        }
+      },
+      "generation": {
+        "32": {
+          "size_bytes": 32,
+          "timing": {
+            "count": 3,
+            "mean_ns": 467498866.6666667,
+            "median_ns": 379766600,
+            "min_ns": 352554400,
+            "max_ns": 670175600,
+            "stdev_ns": 176049764.64969596
+          },
+          "memory": {
+            "mean_peak_bytes": 149248.0,
+            "min_peak_bytes": 149216,
+            "max_peak_bytes": 149280
+          },
+          "throughput_bytes_per_second": {
+            "mean": 74.25903164775174,
+            "min": 47.74867959979444,
+            "max": 90.76613424765087
+          }
+        },
+        "256": {
+          "size_bytes": 256,
+          "timing": {
+            "count": 3,
+            "mean_ns": 1576863433.3333333,
+            "median_ns": 1516576500,
+            "min_ns": 1452003400,
+            "max_ns": 1762010400,
+            "stdev_ns": 163560297.01704302
+          },
+          "memory": {
+            "mean_peak_bytes": 158913.0,
+            "min_peak_bytes": 158913,
+            "max_peak_bytes": 158913
+          },
+          "throughput_bytes_per_second": {
+            "mean": 163.4659858283241,
+            "min": 145.28858626487107,
+            "max": 176.30812710218171
+          }
+        }
+      }
+    },
+    "multiplexed_sponge": {
+      "engine_name": "multiplexed_sponge",
+      "instantiate": {
+        "timing": {
+          "count": 3,
+          "mean_ns": 13308166.666666666,
+          "median_ns": 13504800,
+          "min_ns": 12841700,
+          "max_ns": 13578000,
+          "stdev_ns": 405626.58114740625
+        },
+        "memory": {
+          "mean_peak_bytes": 3832.6666666666665,
+          "min_peak_bytes": 3766,
+          "max_peak_bytes": 3886
+        }
+      },
+      "reseed": {
+        "timing": {
+          "count": 3,
+          "mean_ns": 12191633.333333334,
+          "median_ns": 12184900,
+          "min_ns": 11565000,
+          "max_ns": 12825000,
+          "stdev_ns": 630026.9861945069
+        },
+        "memory": {
+          "mean_peak_bytes": 3043.3333333333335,
+          "min_peak_bytes": 3038,
+          "max_peak_bytes": 3054
+        }
+      },
+      "generation": {
+        "32": {
+          "size_bytes": 32,
+          "timing": {
+            "count": 3,
+            "mean_ns": 24984766.666666668,
+            "median_ns": 24451100,
+            "min_ns": 23464500,
+            "max_ns": 27038700,
+            "stdev_ns": 1845894.4968045529
+          },
+          "memory": {
+            "mean_peak_bytes": 4129.0,
+            "min_peak_bytes": 3965,
+            "max_peak_bytes": 4301
+          },
+          "throughput_bytes_per_second": {
+            "mean": 1285.3285689038064,
+            "min": 1183.4888511651818,
+            "max": 1363.762279187709
+          }
+        },
+        "256": {
+          "size_bytes": 256,
+          "timing": {
+            "count": 3,
+            "mean_ns": 123298733.33333333,
+            "median_ns": 121847100,
+            "min_ns": 113936200,
+            "max_ns": 134112900,
+            "stdev_ns": 10166377.684472151
+          },
+          "memory": {
+            "mean_peak_bytes": 3539.6666666666665,
+            "min_peak_bytes": 3445,
+            "max_peak_bytes": 3637
+          },
+          "throughput_bytes_per_second": {
+            "mean": 2085.568257973304,
+            "min": 1908.839492696079,
+            "max": 2246.8714947488156
+          }
+        }
+      }
+    }
+  },
+  "comparison": {
+    "module_lwr": "instantiate mean 111266.7 ns, reseed mean 115600.0 ns, generate(256 B) mean 1576863433.3 ns, throughput mean 163.5 B/s",
+    "multiplexed_sponge": "instantiate mean 13308166.7 ns, reseed mean 12191633.3 ns, generate(256 B) mean 123298733.3 ns, throughput mean 2085.6 B/s"
+  }
+}

@@ -12,8 +12,8 @@ avec :
 - SRC  : CPU jitter + capteurs inertiels simulés
 - COND : Toeplitz + SHAKE-256
 - DRBG :
-    * moteur nominal Module-LWR
-    * moteur secondaire Multiplexed Sponge
+    * moteur nominal Multiplexed Sponge
+    * moteur secondaire Module-LWR
     * gestionnaire composite PQCCompositeDRBG
 - STATE : scellement / restauration via TEE simulé
 
@@ -263,7 +263,7 @@ def build_cond_seed(pool: EntropyPool, config: DemoConfig) -> ConditioningResult
 # Étape DRBG — Module-LWR
 # ---------------------------------------------------------------------------
 def run_module_lwr(seedinit: bytes, config: DemoConfig) -> dict[str, Any]:
-    """Montre le moteur nominal Module-LWR de bout en bout."""
+    """Montre le moteur secondaire Module-LWR de bout en bout."""
 
     lwr = ModuleLWRCore()
     lwr.instantiate(seedinit, personalization=b"main-demo-lwr")
@@ -325,14 +325,14 @@ def run_composite_manager(seedinit: bytes, config: DemoConfig) -> dict[str, Any]
 
     strict = PQCCompositeDRBG(
         sponge_engine=build_sponge_adapter(config),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     strict.instantiate(seedinit)
     strict_output = strict.generate(config.composite_output_bytes)
 
     research = PQCCompositeDRBG(
         sponge_engine=build_sponge_adapter(config),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_SPONGE_RESEARCH),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.FORCE_LWR_RESEARCH),
     )
     research.instantiate(seedinit)
     research_output = research.generate(config.composite_output_bytes)
@@ -340,7 +340,7 @@ def run_composite_manager(seedinit: bytes, config: DemoConfig) -> dict[str, Any]
     fallback = PQCCompositeDRBG(
         sponge_engine=build_sponge_adapter(config),
         policy=DRBGPolicy(
-            selection_mode=EngineSelectionMode.ALLOW_EXPERIMENTAL_SPONGE_FALLBACK,
+            selection_mode=EngineSelectionMode.ALLOW_EXPERIMENTAL_LWR_FALLBACK,
             allow_fallback_on_unavailability_only=True,
         ),
     )
@@ -389,7 +389,7 @@ def run_state_layer(seedinit: bytes, config: DemoConfig) -> dict[str, Any]:
     payload_manager = StateManager(tee=tee, blob_id="demo_payload")
     simple_payload = {
         "pipeline": "SRC->COND->DRBG->STATE",
-        "active_engine": "module_lwr",
+        "active_engine": "multiplexed_sponge",
         "seedinit_prefix": seedinit[:8].hex(),
         "demo": True,
     }
@@ -400,7 +400,7 @@ def run_state_layer(seedinit: bytes, config: DemoConfig) -> dict[str, Any]:
     # B. Checkpoint complet du DRBG composite
     drbg = PQCCompositeDRBG(
         sponge_engine=build_sponge_adapter(config),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     drbg.instantiate(seedinit)
     _ = drbg.generate(16)
@@ -410,7 +410,7 @@ def run_state_layer(seedinit: bytes, config: DemoConfig) -> dict[str, Any]:
 
     restored_drbg = PQCCompositeDRBG(
         sponge_engine=build_sponge_adapter(config),
-        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_LWR_ONLY),
+        policy=DRBGPolicy(selection_mode=EngineSelectionMode.STRICT_SPONGE_ONLY),
     )
     restored_payload = drbg_manager.restore_drbg(
         restored_drbg,
@@ -454,8 +454,8 @@ def main() -> None:
 
     title("DEMONSTRATION COMPLETE — RNG MOBILE POST-QUANTIQUE")
     print("Objectif : visualiser clairement SRC -> COND -> DRBG -> STATE dans un seul main.py")
-    print("Moteur nominal   : Module-LWR")
-    print("Moteur secondaire: Multiplexed Sponge")
+    print("Moteur nominal   : Multiplexed Sponge")
+    print("Moteur secondaire: Module-LWR")
     print("Conditionneur    : Toeplitz + SHAKE-256")
     print("STATE            : TEE simulé + scellement / restauration")
 

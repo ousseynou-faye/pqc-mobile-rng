@@ -1,8 +1,8 @@
 """
-J'expose ici les composants publics du DRBG post-quantique.
+Composants publics du DRBG post-quantique.
 
-Dans cette étape, je structure le moteur nominal Module-LWR et
-le moteur secondaire basé sur le Multiplexed Sponge.
+Le moteur nominal du depot est desormais Multiplexed Sponge.
+Module-LWR reste disponible comme moteur secondaire et experimental.
 """
 
 from .drbg_engine import PQCCompositeDRBG

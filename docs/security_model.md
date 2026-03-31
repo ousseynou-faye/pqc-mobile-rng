@@ -22,8 +22,8 @@ SRC -> COND -> DRBG -> STATE
 avec :
 
 - `COND = Toeplitz + SHAKE-256`
-- `DRBG nominal = Module-LWR`
-- `Multiplexed Sponge = moteur secondaire de recherche`
+- `DRBG nominal = Multiplexed Sponge`
+- `Module-LWR = moteur secondaire de recherche`
 - `STATE = persistance et protection simulees`
 
 ## 3. Actifs a proteger
@@ -60,7 +60,7 @@ Il ne doit pas etre presente comme une preuve formelle complete de min-entropie.
 
 ### 4.3 Moteur nominal
 
-`Module-LWR` est le moteur nominal effectivement execute.
+`Multiplexed Sponge` est le moteur nominal effectivement execute.
 
 La securite attendue est celle d'un prototype academique defendable, pas celle
 d'un composant certifie, homologue ou normalise.
@@ -106,16 +106,16 @@ experimentaux prudents, pas par une validation normative complete.
 Il s'agit du conditionneur officiel de la baseline. Il prepare `Seedinit` et
 separe `SRC` de `DRBG`.
 
-### 7.3 Module-LWR
+### 7.3 Multiplexed Sponge
 
 Il porte la generation deterministe nominale du prototype. C'est le coeur
 post-quantique effectivement active par defaut.
 
-### 7.4 Multiplexed Sponge
+### 7.4 Module-LWR
 
-Il est maintenu comme moteur secondaire de recherche, utile pour comparaison et
-experimentation. Il ne doit pas etre decrit comme le comportement normal par
-defaut.
+Il est maintenu comme moteur secondaire de recherche, utile pour comparaison,
+experimentation et fallback controle. Il ne doit pas etre decrit comme le
+comportement normal par defaut.
 
 ### 7.5 STATE / persistance / restauration
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from hashlib import shake_256
 
-"""J'implémente ici le moteur nominal Module-LWR."""
+"""J'implemente ici le moteur secondaire Module-LWR."""
 
 from .errors import DRBGError
 from .interfaces import DRBGEngine, EngineHealth, StateExport
@@ -20,7 +20,7 @@ from .params import LWRParams, default_lwr_params
 @dataclass(slots=True)
 class ModuleLWRCore(DRBGEngine):
     """
-    Je considère ici Module-LWR comme moteur nominal du système.
+    Je considere ici Module-LWR comme moteur secondaire du systeme.
 
     Je garde ce prototype volontairement lisible pour le mémoire :
     - je dérive d'abord les graines internes ;
@@ -40,7 +40,7 @@ class ModuleLWRCore(DRBGEngine):
 
     @property
     def name(self) -> str:
-        """Je retourne ici le nom stable du moteur nominal."""
+        """Je retourne ici le nom stable du moteur secondaire."""
 
         return "module_lwr"
 
@@ -126,7 +126,7 @@ class ModuleLWRCore(DRBGEngine):
         return digest
 
     def instantiate(self, seed_material: bytes, personalization: bytes = b"") -> None:
-        """J'initialise ici complètement l'état interne du moteur nominal."""
+        """J'initialise ici completement l'etat interne du moteur secondaire."""
 
         seed_s, seed_a = self._derive_seed_parts(seed_material, personalization)
         self._secret_vector = sample_ternary_vector(

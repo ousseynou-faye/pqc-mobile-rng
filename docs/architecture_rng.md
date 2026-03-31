@@ -38,9 +38,9 @@ dans `software/api/`.
   COND : Toeplitz Extractor -> SHAKE-256 -> Seedinit
             |
             v
-  DRBG : Module-LWR (nominal)
+  DRBG : Multiplexed Sponge (nominal)
             |
-            +--> Multiplexed Sponge (secondaire / recherche)
+            +--> Module-LWR (secondaire / recherche)
             |
             v
   STATE : machine a etats + sealing/restauration + anti-rollback simule
@@ -87,11 +87,11 @@ La couche `DRBG` est implemente dans `software/pqc_drbg/`.
 
 Le moteur nominal est :
 
-- `Module-LWR`, via `ModuleLWRCore`
+- `Multiplexed Sponge`, via `MultiplexedSpongeAdapter`
 
 Le moteur secondaire est :
 
-- `Multiplexed Sponge`, via `MultiplexedSpongeAdapter`
+- `Module-LWR`, via `ModuleLWRCore`
 
 Le gestionnaire composite `PQCCompositeDRBG` orchestre :
 
@@ -133,8 +133,8 @@ La demonstration de reference se trouve dans `demo/run_full_project_demo.py`.
 Elle montre :
 
 - le chemin complet `SRC -> COND -> DRBG -> STATE` ;
-- le moteur nominal `Module-LWR` ;
-- le moteur secondaire `Multiplexed Sponge` ;
+- le moteur nominal `Multiplexed Sponge` ;
+- le moteur secondaire `Module-LWR` ;
 - la machine a etats ;
 - le sealing et la restauration d'etat.
 
@@ -144,8 +144,8 @@ Elle montre :
   qualification materielle complete.
 - Le conditionnement `Toeplitz + SHAKE-256` est l'unique formulation correcte
   de la baseline actuelle.
-- `Module-LWR` est le moteur nominal de la baseline executable.
-- `Multiplexed Sponge` est conserve pour la recherche et la comparaison.
+- `Multiplexed Sponge` est le moteur nominal de la baseline executable.
+- `Module-LWR` est conserve pour la recherche, la comparaison et le fallback controle.
 - La couche `STATE` simule un environnement protege, sans pretendre a un TEE
   materiel deja deploye.
 
@@ -165,8 +165,8 @@ Elle montre :
 
 - `SRC` avec collecte, tests de sante et pool d'entropie
 - `COND` avec `Toeplitz + SHAKE-256`
-- `DRBG` nominal `Module-LWR`
-- moteur secondaire `Multiplexed Sponge`
+- `DRBG` nominal `Multiplexed Sponge`
+- moteur secondaire `Module-LWR`
 - `STATE` avec machine a etats et TEE simule
 - SDK Python local et demonstration complete
 - validation statistique et benchmarks logiciels locaux

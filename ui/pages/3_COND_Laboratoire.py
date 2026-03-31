@@ -78,7 +78,7 @@ with col1:
     text_panel("Role du conditionnement", "Toeplitz regularise l'entree brute et SHAKE-256 derive un `Seedinit` stable, contextualise et plus propre pour la couche DRBG.")
     fig = px.bar([{"stage": "Raw", "bits": cond["input_bits"]}, {"stage": "Seedinit", "bits": cond["output_bits"]}], x="stage", y="bits", color="stage", title="Reduction et structuration du materiau")
     fig.update_layout(height=320, margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.subheader("Apercus securises")
     st.code(f"Raw      : {cond['raw_preview_hex']}", language="text")
     st.code(f"Toeplitz : {cond['toeplitz_preview_hex']}", language="text")
